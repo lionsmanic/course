@@ -169,6 +169,7 @@
     <button id="exportBtn">匯出 JSON</button>
     <button id="importBtn">匯入</button>
     <button id="clearMonth" title="清掉本月 AI 自動排定（手動排的保留）">清本月 AI</button>
+    <button id="clearAllAI" title="清掉所有月份的 AI 自動排定（手動排的保留），可在更新規則後重排">清全部 AI</button>
     <input type="file" id="importFile" accept="application/json" hidden>
   </div>
   <div class="legend">
@@ -518,6 +519,10 @@ document.getElementById("clearMonth").addEventListener("click",()=>{
     if(d.getFullYear()===y&&d.getMonth()===mo){const arr=state.meetings[k].filter(m=>!m.ai);n+=state.meetings[k].length-arr.length;
       if(arr.length)state.meetings[k]=arr;else delete state.meetings[k];}}
   save();render();toast(n?`已清除本月 ${n} 場 AI 自動排定`:"本月沒有 AI 自動排定可清");});
+document.getElementById("clearAllAI").addEventListener("click",()=>{
+  let n=0;for(const k of Object.keys(state.meetings)){const arr=state.meetings[k].filter(m=>!m.ai);n+=state.meetings[k].length-arr.length;
+    if(arr.length)state.meetings[k]=arr;else delete state.meetings[k];}
+  save();render();toast(n?`已清除全部 ${n} 場 AI 自動排定（手動排的保留）。可按「AI 自動排未來 12 個月」重排`:"沒有 AI 自動排定可清");});
 
 /* ---------- drug history modal ---------- */
 const dov=document.getElementById("drugOverlay");
