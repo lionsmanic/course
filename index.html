@@ -150,7 +150,7 @@
   <header class="top">
     <div class="title">
       <h1>婦癌科會議排程</h1>
-      <p>科內 routine 為主 · 任一天皆可排、一天可多場 · 規則先排，AI 協助選藥</p>
+      <p>科內 routine 為主、擇一輪替 · 任一天可排、一天可多場 · 規則先排，AI 協助選藥與安排</p>
     </div>
     <div class="nav">
       <button class="iconbtn" id="prev" aria-label="上個月">‹</button>
@@ -162,6 +162,7 @@
   <div class="toolbar">
     <button class="primary" id="autoMonth">AI 自動排本月</button>
     <button id="autoYear">AI 自動排未來 12 個月</button>
+    <button id="planBtn">AI 安排一場</button>
     <button id="drugBtn">藥物履歷</button>
     <button id="settingsBtn">AI 設定</button>
     <span class="spacer"></span>
@@ -171,7 +172,7 @@
     <input type="file" id="importFile" accept="application/json" hidden>
   </div>
   <div class="legend">
-    <span class="tag"><span class="dot d-routine"></span>科內 routine（文獻／新藥／試驗進度）</span>
+    <span class="tag"><span class="dot d-routine"></span>科內 routine（Journal／Book／藥物 review／試驗匯總）</span>
     <span class="tag"><span class="dot d-center"></span>癌症中心（案例檢討／品質／指引）</span>
     <span class="tag"><span class="dot d-admin"></span>行政</span>
     <span class="tag"><span class="dot d-extra"></span>外加（SIV／外賓／檢驗）</span>
@@ -190,11 +191,12 @@
     <h2 id="edTitle">排定會議</h2>
     <div class="sub" id="edSub"></div>
     <div class="field">
-      <div class="group-label">科內 routine（為主）</div>
+      <div class="group-label">科內 routine（自動排時擇一輪替）</div>
       <div class="typegrid" data-group="routine">
-        <label><input type="checkbox" value="文獻研讀"><span>文獻研讀 Journal／Book（每月）</span></label>
-        <label><input type="checkbox" value="新藥／試驗結果分享"><span>新藥／試驗結果分享（每月）</span></label>
-        <label><input type="checkbox" value="臨床試驗進度整理"><span>臨床試驗進度整理（每季）</span></label>
+        <label><input type="checkbox" value="Journal reading"><span>Journal reading</span></label>
+        <label><input type="checkbox" value="Book reading"><span>Book reading</span></label>
+        <label><input type="checkbox" value="藥物使用與最新文獻review"><span>藥物使用與最新文獻 review</span></label>
+        <label><input type="checkbox" value="臨床試驗進度匯總"><span>臨床試驗進度匯總（每季）</span></label>
       </div>
       <div class="group-label">癌症中心要求（需要才辦，可合辦）</div>
       <div class="typegrid" data-group="center">
@@ -214,7 +216,7 @@
     </div>
     <div class="drugbox" id="drugbox">
       <div class="field" style="margin-bottom:0">
-        <label for="drugInput">藥物／試驗（排「新藥／試驗結果分享」時填）</label>
+        <label for="drugInput">藥物（排「藥物使用與最新文獻 review」時填）</label>
         <div class="row">
           <input type="text" id="drugInput" list="drugList" placeholder="例：Yondelis" style="flex:1">
           <button type="button" id="suggestDrug" style="white-space:nowrap">建議最久沒講的</button>
@@ -241,6 +243,23 @@
   </div>
 </div>
 
+<!-- Plan (verbal request) -->
+<div class="overlay" id="planOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="planTitle">
+    <h2 id="planTitle">口頭安排一場會議</h2>
+    <div class="sub">描述你想加的會議和大概哪個月，AI 會對照現有排程，建議放在哪一天。</div>
+    <div class="field"><label for="planText">想加什麼會議？哪個月？</label>
+      <textarea id="planText" placeholder="例：七月想加一場 PARP inhibitor 維持治療的演講；或：下個月找一天排 HIPEC 案例討論"></textarea></div>
+    <div class="modal-actions">
+      <button class="aibtn" id="planRun" style="flex:1">請 AI 評估</button>
+      <button id="closePlan">關閉</button>
+    </div>
+    <div class="aibody" id="planResult" style="margin-top:14px"></div>
+    <div id="planSources"></div>
+    <div class="modal-actions" id="planActions"></div>
+  </div>
+</div>
+
 <!-- Drug history -->
 <div class="overlay" id="drugOverlay">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="drTitle">
@@ -258,18 +277,13 @@
 <div class="overlay" id="settingsOverlay">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="setTitle">
     <h2 id="setTitle">AI 設定</h2>
-    <div class="sub">填入你自己的 API 金鑰後，才會啟用「AI 查近期進展 / 推薦藥物」。</div>
+    <div class="sub">填入你自己的 API 金鑰後，才會啟用 AI 功能。</div>
     <div class="warn">金鑰只存在這台瀏覽器的本機儲存，不會寫進網頁原始碼。但純前端網頁呼叫 API 時，金鑰會出現在你瀏覽器的網路請求中，請只用在自己的裝置、並用有額度上限的金鑰。要對外公開或多人共用時，建議改用後端代呼叫。</div>
     <div class="field"><label for="provSel">服務商</label>
-      <select id="provSel"><option value="gemini">Google Gemini</option><option value="claude">Anthropic Claude</option></select>
-    </div>
-    <div class="field"><label for="keyInput">API 金鑰</label>
-      <input type="password" id="keyInput" placeholder="貼上你的 API key">
-    </div>
-    <div class="field"><label for="modelInput">模型</label>
-      <input type="text" id="modelInput" placeholder="gemini-2.0-flash">
-      <div class="helptext" id="modelHelp"></div>
-    </div>
+      <select id="provSel"><option value="gemini">Google Gemini</option><option value="claude">Anthropic Claude</option></select></div>
+    <div class="field"><label for="keyInput">API 金鑰</label><input type="password" id="keyInput" placeholder="貼上你的 API key"></div>
+    <div class="field"><label for="modelInput">模型</label><input type="text" id="modelInput" placeholder="gemini-2.0-flash">
+      <div class="helptext" id="modelHelp"></div></div>
     <div class="modal-actions">
       <button class="save" id="saveSettings">儲存</button>
       <button id="testAI">測試連線</button>
@@ -285,10 +299,7 @@
     <div class="sub">由你設定的 AI 服務即時產生，請自行核對內容與來源。</div>
     <div class="aibody" id="aiBody"></div>
     <div id="aiSources"></div>
-    <div class="modal-actions" id="aiExtraWrap" style="margin-top:16px">
-      <span id="aiExtra"></span>
-      <button id="closeAI" style="flex:1">關閉</button>
-    </div>
+    <div class="modal-actions" style="margin-top:16px"><span id="aiExtra"></span><button id="closeAI" style="flex:1">關閉</button></div>
   </div>
 </div>
 
@@ -297,7 +308,10 @@
 <script>
 "use strict";
 const STORE_KEY="gynonc-schedule-v2", AI_KEY="gynonc-ai-settings";
-const TYPE_CLASS={"文獻研讀":"routine","新藥／試驗結果分享":"routine","臨床試驗進度整理":"routine",
+const DRUG_TYPE="藥物使用與最新文獻review", LEGACY_DRUG="新藥／試驗結果分享";
+const ROUTINE_CYCLE=["Journal reading","藥物使用與最新文獻review","Book reading"];
+const TYPE_CLASS={"Journal reading":"routine","Book reading":"routine","藥物使用與最新文獻review":"routine",
+  "臨床試驗進度匯總":"routine","新藥／試驗結果分享":"routine","文獻研讀":"routine","臨床試驗進度整理":"routine",
   "案例檢討／品質／必要提報":"center","指引更新":"center","Staff meeting／行政":"admin",
   "SIV 試驗啟動":"extra","外賓／專題演講":"extra","基因／檢驗／系統介紹":"extra"};
 const AUTO_POOL=["Enhertu (T-DXd)","Yondelis","Vegzelma","DUO-E","子宮頸癌免疫治療"];
@@ -321,11 +335,9 @@ let editingKey=null, editingId=null;
 
 function uid(){return "m"+Math.random().toString(36).slice(2,8)+Date.now().toString(36);}
 function load(){
-  try{
-    const r=JSON.parse(localStorage.getItem(STORE_KEY)||localStorage.getItem("gynonc-schedule-v1"));
+  try{const r=JSON.parse(localStorage.getItem(STORE_KEY)||localStorage.getItem("gynonc-schedule-v1"));
     if(r&&r.meetings){for(const k of Object.keys(r.meetings)){let v=r.meetings[k];if(!Array.isArray(v))v=[v];
-      v.forEach(m=>{if(!m.id)m.id=uid();});r.meetings[k]=v;}return r;}
-  }catch(e){}
+      v.forEach(m=>{if(!m.id)m.id=uid();});r.meetings[k]=v;}return r;}}catch(e){}
   return {meetings:{}};
 }
 function save(){try{localStorage.setItem(STORE_KEY,JSON.stringify(state));}catch(e){toast("無法儲存（瀏覽器封鎖本機儲存）");}}
@@ -340,11 +352,12 @@ function monthsAgo(fromISO,ref){const a=parseISO(fromISO),b=ref;let m=(b.getFull
 function fridayOrdinal(d){return Math.floor((d.getDate()-1)/7)+1;}
 const WD=["日","一","二","三","四","五","六"];
 function dayMeetings(key){return state.meetings[key]||[];}
+function isDrugType(types){return types&&(types.includes(DRUG_TYPE)||types.includes(LEGACY_DRUG));}
 
 function allDrugRecords(){
   const recs=SEED_HISTORY.slice();
   for(const[k,arr]of Object.entries(state.meetings))for(const m of arr)
-    if(m.drug&&m.types&&m.types.includes("新藥／試驗結果分享"))recs.push({drug:m.drug.trim(),date:k,kind:"routine"});
+    if(m.drug&&isDrugType(m.types))recs.push({drug:m.drug.trim(),date:k,kind:"routine"});
   return recs;
 }
 function drugSummary(ref=new Date()){
@@ -444,7 +457,7 @@ function openEditor(key,id,prefill){
 }
 function closeEditor(){ov.classList.remove("open");editingKey=null;editingId=null;}
 function selectedTypes(){return[...document.querySelectorAll(".typegrid input:checked")].map(cb=>cb.value);}
-function toggleDrugBox(){document.getElementById("drugbox").classList.toggle("show",selectedTypes().includes("新藥／試驗結果分享"));}
+function toggleDrugBox(){document.getElementById("drugbox").classList.toggle("show",selectedTypes().includes(DRUG_TYPE));}
 function fillDrugList(){const names=[...new Set([...AUTO_POOL,...allDrugRecords().map(r=>r.drug)])];
   document.getElementById("drugList").innerHTML=names.map(n=>`<option value="${escapeHTML(n)}">`).join("");}
 function updateDrugHint(){const drug=document.getElementById("drugInput").value.trim();const hint=document.getElementById("drugHint");
@@ -459,7 +472,7 @@ document.getElementById("suggestDrug").addEventListener("click",()=>{const ref=e
 document.getElementById("saveMeeting").addEventListener("click",()=>{
   const types=selectedTypes();if(!types.length){toast("請至少選一個會議類型");return;}
   const drug=document.getElementById("drugInput").value.trim();
-  const obj={id:editingId||uid(),types,drug:types.includes("新藥／試驗結果分享")?drug:"",
+  const obj={id:editingId||uid(),types,drug:types.includes(DRUG_TYPE)?drug:"",
     topic:document.getElementById("topicInput").value.trim(),presenter:document.getElementById("presInput").value.trim(),
     time:document.getElementById("timeInput").value.trim(),location:document.getElementById("locInput").value.trim(),
     notes:document.getElementById("noteInput").value.trim(),ai:false};
@@ -473,33 +486,32 @@ document.getElementById("deleteMeeting").addEventListener("click",()=>{
 document.getElementById("closeEditor").addEventListener("click",closeEditor);
 ov.addEventListener("click",e=>{if(e.target===ov)closeEditor();});
 
-/* ---------- auto schedule (rule-based) ---------- */
+/* ---------- auto schedule (rule-based, 擇一輪替) ---------- */
 function fridaysOf(y,mo){const out=[];const d=new Date(y,mo,1);while(d.getMonth()===mo){if(d.getDay()===5)out.push(new Date(d));d.setDate(d.getDate()+1);}return out;}
-function autoMonth(y,mo,pending,silent){
-  pending=pending||{};const fris=fridaysOf(y,mo);let made=0,firstSug=null;
-  const quarter=(mo%3===0); // 一月/四月/七月/十月 → 每季一次
-  let firstNew=true;
+function autoMonth(y,mo,ctx,silent){
+  ctx=ctx||{pending:{},cycle:0};const fris=fridaysOf(y,mo);let made=0;
+  const quarter=(mo%3===0);let firstNew=true;
   for(const f of fris){
     if(fridayOrdinal(f)===1)continue;
     const key=iso(f);const arr=state.meetings[key]||[];
     if(arr.some(m=>m.ai&&m.routine))continue;
-    const s=suggestDrug(f,pending);
-    const types=["文獻研讀","新藥／試驗結果分享"];
-    let topic="科內 routine：文獻研讀 ＋ 新藥／試驗結果分享";
-    if(quarter&&firstNew){types.push("臨床試驗進度整理");topic+="（＋ 本季臨床試驗進度整理）";}
-    arr.push({id:uid(),types,drug:s.drug,topic,presenter:"",time:"07:30–08:00",
-      location:"KB2 討論室",notes:"AI 依科內 routine 自動排定，可自由增減或合辦",ai:true,routine:true});
-    state.meetings[key]=arr;pending[s.drug]=key;made++;firstNew=false;if(!firstSug)firstSug=s;
+    let type,drug="";
+    if(quarter&&firstNew){type="臨床試驗進度匯總";}
+    else{type=ROUTINE_CYCLE[ctx.cycle%ROUTINE_CYCLE.length];ctx.cycle++;}
+    if(type===DRUG_TYPE){const s=suggestDrug(f,ctx.pending);drug=s.drug;ctx.pending[drug]=key;}
+    arr.push({id:uid(),types:[type],drug,topic:type+(drug?`：${drug}`:""),presenter:"",time:"07:30–08:00",
+      location:"KB2 討論室",notes:"AI 依科內 routine 自動排定（擇一輪替），可自由增減或合辦",ai:true,routine:true});
+    state.meetings[key]=arr;made++;firstNew=false;
   }
-  return{made,firstSug};
+  return{made};
 }
 document.getElementById("autoMonth").addEventListener("click",()=>{
-  const r=autoMonth(view.getFullYear(),view.getMonth(),{});save();render();
-  toast(r.made?`已排本月 ${r.made} 個週五的科內 routine（藥物自動輪替${view.getMonth()%3===0?"，含本季試驗進度整理":""}）`:"本月可排的週五都已排過");});
+  const r=autoMonth(view.getFullYear(),view.getMonth(),{pending:{},cycle:0});save();render();
+  toast(r.made?`已排本月 ${r.made} 個週五（Journal／Book／藥物 review 擇一輪替${view.getMonth()%3===0?"，本季含臨床試驗進度匯總":""}）`:"本月可排的週五都已排過");});
 document.getElementById("autoYear").addEventListener("click",()=>{
-  const pending={};let total=0;const start=new Date(view);
-  for(let i=0;i<12;i++){const dd=new Date(start.getFullYear(),start.getMonth()+i,1);total+=autoMonth(dd.getFullYear(),dd.getMonth(),pending,true).made;}
-  save();render();toast(`已為未來 12 個月排定 ${total} 場（每月文獻＋新藥、每季加一次試驗進度整理，藥物輪替）`);});
+  const ctx={pending:{},cycle:0};let total=0;const start=new Date(view);
+  for(let i=0;i<12;i++){const dd=new Date(start.getFullYear(),start.getMonth()+i,1);total+=autoMonth(dd.getFullYear(),dd.getMonth(),ctx,true).made;}
+  save();render();toast(`已排未來 12 個月共 ${total} 場（每週五擇一：Journal／Book／藥物 review 輪替，每季一次臨床試驗進度匯總）`);});
 document.getElementById("clearMonth").addEventListener("click",()=>{
   const y=view.getFullYear(),mo=view.getMonth();let n=0;
   for(const k of Object.keys(state.meetings)){const d=parseISO(k);
@@ -525,7 +537,7 @@ const setov=document.getElementById("settingsOverlay");
 function modelDefault(p){return p==="gemini"?"gemini-2.0-flash":"";}
 function modelHelpText(p){return p==="gemini"
   ?"建議 gemini-2.0-flash 或 gemini-2.5-flash（皆支援 Google 搜尋）。金鑰到 Google AI Studio 申請。"
-  :"填你方案可用的 Claude 模型 ID（例如 claude-sonnet 系列）。會以瀏覽器直連方式呼叫，需該金鑰允許。";}
+  :"填你方案可用的 Claude 模型 ID（例如 claude-sonnet 系列）。以瀏覽器直連方式呼叫。";}
 function openSettings(){
   document.getElementById("provSel").value=aiSettings.provider;
   document.getElementById("keyInput").value=aiSettings.key||"";
@@ -548,18 +560,14 @@ setov.addEventListener("click",e=>{if(e.target===setov)setov.classList.remove("o
 document.getElementById("testAI").addEventListener("click",async()=>{
   const prov=document.getElementById("provSel").value,key=document.getElementById("keyInput").value.trim();
   const model=document.getElementById("modelInput").value.trim()||modelDefault(prov);
-  if(!key){toast("請先填金鑰");return;}
-  toast("測試中…");
-  try{const{text}=await aiCall({provider:prov,key,model},"請只回覆兩個字：成功",false);
-    toast("連線成功："+(text||"").slice(0,20));}catch(e){toast("失敗："+e.message);}});
+  if(!key){toast("請先填金鑰");return;}toast("測試中…");
+  try{const{text}=await aiCall({provider:prov,key,model},"請只回覆兩個字：成功",false);toast("連線成功："+(text||"").slice(0,20));}
+  catch(e){toast("失敗："+e.message);}});
 
 /* ---------- AI calls ---------- */
 function aiReady(){return !!(aiSettings.key);}
 async function aiComplete(prompt,useSearch){return aiCall(aiSettings,prompt,useSearch);}
-async function aiCall(cfg,prompt,useSearch){
-  if(cfg.provider==="claude")return claudeCall(cfg,prompt,useSearch);
-  return geminiCall(cfg,prompt,useSearch);
-}
+async function aiCall(cfg,prompt,useSearch){if(cfg.provider==="claude")return claudeCall(cfg,prompt,useSearch);return geminiCall(cfg,prompt,useSearch);}
 async function geminiCall(cfg,prompt,useSearch){
   const model=cfg.model||"gemini-2.0-flash";
   const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(cfg.key)}`;
@@ -583,18 +591,17 @@ async function claudeCall(cfg,prompt,useSearch){
   const data=await res.json();
   if(data.error)throw new Error((data.error.message)||"Claude 錯誤");
   const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n").trim();
-  const sources=[];
-  (data.content||[]).forEach(b=>{if(b.type==="text"&&b.citations)b.citations.forEach(c=>{if(c.url)sources.push({title:c.title||c.url,uri:c.url});});});
+  const sources=[];(data.content||[]).forEach(b=>{if(b.type==="text"&&b.citations)b.citations.forEach(c=>{if(c.url)sources.push({title:c.title||c.url,uri:c.url});});});
   return{text:text||"（沒有回應內容）",sources};
 }
 
 /* ---------- AI result modal ---------- */
 const aiov=document.getElementById("aiOverlay");
+function srcHTML(sources){return(sources&&sources.length)?("<div class='aisrc'><b>來源</b>"+sources.map(s=>`<a href="${escapeHTML(s.uri)}" target="_blank" rel="noopener">${escapeHTML(s.title||s.uri)}</a>`).join("")+"</div>"):"";}
 function openAI(title,bodyHTML,sources,extraHTML){
   document.getElementById("aiTitle").textContent=title;
   document.getElementById("aiBody").innerHTML=bodyHTML;
-  const src=(sources&&sources.length)?("<div class='aisrc'><b>來源</b>"+sources.map(s=>`<a href="${escapeHTML(s.uri)}" target="_blank" rel="noopener">${escapeHTML(s.title||s.uri)}</a>`).join("")+"</div>"):"";
-  document.getElementById("aiSources").innerHTML=src;
+  document.getElementById("aiSources").innerHTML=srcHTML(sources);
   document.getElementById("aiExtra").innerHTML=extraHTML||"";
   aiov.classList.add("open");
 }
@@ -602,7 +609,7 @@ function aiText(t){return escapeHTML(t).replace(/\n/g,"<br>");}
 document.getElementById("closeAI").addEventListener("click",()=>aiov.classList.remove("open"));
 aiov.addEventListener("click",e=>{if(e.target===aiov)aiov.classList.remove("open");});
 
-/* ---------- AI feature: recommend next drug ---------- */
+/* ---------- AI: recommend next drug ---------- */
 document.getElementById("aiRecommend").addEventListener("click",async()=>{
   if(!aiReady()){toast("請先在「AI 設定」填金鑰");openSettings();return;}
   const rows=drugSummary(new Date()).filter(r=>r.kind==="routine"||AUTO_POOL.includes(r.drug));
@@ -610,7 +617,7 @@ document.getElementById("aiRecommend").addEventListener("click",async()=>{
   const today=iso(new Date());
   const prompt=
 `你是婦癌科（gynecologic oncology）學術會議規劃助理。今天是 ${today}。
-本科「新藥／試驗結果分享」過去介紹過的藥物與最近一次日期：
+本科「藥物使用與最新文獻 review」過去介紹過的藥物與最近一次日期：
 ${listTxt}
 
 請用網路搜尋最近約 12 個月內婦癌領域（卵巢癌、子宮內膜癌、子宮頸癌等）用藥的重要進展，包含：新藥核准（FDA／EMA／台灣 TFDA）、重要臨床試驗結果（ASCO／ESMO／SGO／IGCS）、台灣健保給付變動。
@@ -626,13 +633,12 @@ ${listTxt}
   }catch(e){openAI("AI 推薦下個要報告的藥",aiText("發生錯誤："+e.message+"\n請確認 AI 設定、模型名稱與 API 額度。"),[],"");}
 });
 function nextOpenFriday(){let d=new Date();d.setHours(0,0,0,0);
-  for(let i=0;i<400;i++){if(d.getDay()===5&&fridayOrdinal(d)>=2){if(!dayMeetings(iso(d)).some(m=>m.routine&&m.types.includes("新藥／試驗結果分享")))return new Date(d);}d.setDate(d.getDate()+1);}
-  return null;}
+  for(let i=0;i<400;i++){if(d.getDay()===5&&fridayOrdinal(d)>=2){if(!dayMeetings(iso(d)).some(m=>isDrugType(m.types)))return new Date(d);}d.setDate(d.getDate()+1);}return null;}
 function scheduleDrugNext(drug){const f=nextOpenFriday();if(!f){toast("找不到可排的週五");return;}
   view=new Date(f.getFullYear(),f.getMonth(),1);render();
-  openEditor(iso(f),null,{types:["文獻研讀","新藥／試驗結果分享"],drug,topic:"科內 routine：新藥／試驗結果分享"});}
+  openEditor(iso(f),null,{types:[DRUG_TYPE],drug,topic:"藥物使用與最新文獻 review："+drug});}
 
-/* ---------- AI feature: drug progress in editor ---------- */
+/* ---------- AI: drug progress in editor ---------- */
 document.getElementById("drugProgress").addEventListener("click",async()=>{
   if(!aiReady()){toast("請先在「AI 設定」填金鑰");openSettings();return;}
   const drug=document.getElementById("drugInput").value.trim();if(!drug){toast("請先輸入藥物名稱");return;}
@@ -645,6 +651,64 @@ ${hist}
   openAI(`AI 查「${drug}」近期進展`,`<span class="spin"></span>搜尋中…`,[],"");
   try{const{text,sources}=await aiComplete(prompt,true);openAI(`AI 查「${drug}」近期進展`,aiText(text),sources,"");}
   catch(e){openAI(`AI 查「${drug}」近期進展`,aiText("發生錯誤："+e.message),[],"");}
+});
+
+/* ---------- AI: verbal plan a meeting ---------- */
+const plov=document.getElementById("planOverlay");
+function scheduleDigest(n){
+  const lines=[];const start=new Date();start.setDate(1);
+  for(let i=0;i<n;i++){const dd=new Date(start.getFullYear(),start.getMonth()+i,1);
+    lines.push(`【${dd.getFullYear()}年${dd.getMonth()+1}月】`);
+    for(const f of fridaysOf(dd.getFullYear(),dd.getMonth())){
+      const ord=fridayOrdinal(f),arr=dayMeetings(iso(f));let st;
+      if(ord===1)st="全院 meeting（不排）";
+      else if(!arr.length)st="空";
+      else st=arr.map(m=>(m.types||[]).join("＋")+(m.drug?`(${m.drug})`:"")).join("；");
+      lines.push(`  ${iso(f)} 第${ord}個週五：${st}`);
+    }}
+  return lines.join("\n");
+}
+document.getElementById("planBtn").addEventListener("click",()=>{
+  document.getElementById("planResult").innerHTML="";document.getElementById("planSources").innerHTML="";
+  document.getElementById("planActions").innerHTML="";plov.classList.add("open");
+  setTimeout(()=>document.getElementById("planText").focus(),50);});
+document.getElementById("closePlan").addEventListener("click",()=>plov.classList.remove("open"));
+plov.addEventListener("click",e=>{if(e.target===plov)plov.classList.remove("open");});
+document.getElementById("planRun").addEventListener("click",async()=>{
+  if(!aiReady()){toast("請先在「AI 設定」填金鑰");openSettings();return;}
+  const txt=document.getElementById("planText").value.trim();if(!txt){toast("請先描述你想加的會議");return;}
+  const digest=scheduleDigest(4),today=iso(new Date());
+  const prompt=
+`你是婦癌科會議排程助理。今天 ${today}。
+排程規則：會議都排在週五早上 07:30–08:00；每月「第一個週五」是全院 meeting，不排；「第四個週五」下午另有 tumor board。科內 routine（Journal reading／Book reading／藥物使用與最新文獻 review，每季一次臨床試驗進度匯總）已自動排在部分週五，可與新會議合辦。
+接下來幾個月的週五狀態如下：
+${digest}
+
+使用者想新增：「${txt}」
+
+請依規則挑「一個」最合適的日期：優先放在使用者指定的月份、且該週五為「空」；若指定月份的空週五不足，可建議與某個已排 routine 的週五合辦，或挪到最接近的空週五；避開第一個週五。用繁體中文簡短說明理由（2–3 句）。最後務必獨立三行，格式固定：
+建議日期：YYYY-MM-DD
+建議類型：（從 Journal reading／Book reading／藥物使用與最新文獻review／臨床試驗進度匯總／案例檢討／品質／必要提報／指引更新／Staff meeting／行政／SIV 試驗啟動／外賓／專題演講／基因／檢驗／系統介紹 之中擇一）
+主題：（簡短主題）`;
+  document.getElementById("planResult").innerHTML='<span class="spin"></span>AI 評估排程中…';
+  document.getElementById("planSources").innerHTML="";document.getElementById("planActions").innerHTML="";
+  try{
+    const{text,sources}=await aiComplete(prompt,false);
+    document.getElementById("planResult").innerHTML=aiText(text);
+    document.getElementById("planSources").innerHTML=srcHTML(sources);
+    const dm=text.match(/建議日期[：:]\s*(\d{4}-\d{2}-\d{2})/);
+    const tm=text.match(/建議類型[：:]\s*([^\n]+)/);
+    const sm=text.match(/主題[：:]\s*([^\n]+)/);
+    if(dm){
+      const date=dm[1];let type=tm?tm[1].trim():"";const topic=sm?sm[1].trim():txt;
+      Object.keys(TYPE_CLASS).forEach(k=>{if(type.indexOf(k)>=0)type=k;});
+      const known=!!TYPE_CLASS[type];
+      document.getElementById("planActions").innerHTML=`<button class="save" id="planAdd" style="flex:1">排進 ${date}</button>`;
+      document.getElementById("planAdd").addEventListener("click",()=>{
+        plov.classList.remove("open");const d=parseISO(date);view=new Date(d.getFullYear(),d.getMonth(),1);render();
+        openEditor(date,null,{types:known?[type]:[],topic,drug:type===DRUG_TYPE?"":""});});
+    }
+  }catch(e){document.getElementById("planResult").innerHTML=aiText("發生錯誤："+e.message);}
 });
 
 /* ---------- nav / import / export ---------- */
@@ -661,7 +725,7 @@ document.getElementById("importFile").addEventListener("change",e=>{
     for(const k of Object.keys(d.meetings)){let v=d.meetings[k];if(!Array.isArray(v))v=[v];v.forEach(m=>{if(!m.id)m.id=uid();});d.meetings[k]=v;}
     state=d;save();render();toast("已匯入");}else toast("檔案格式不符");}catch(err){toast("無法讀取檔案");}};
   r.readAsText(f);e.target.value="";});
-document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeEditor();dov.classList.remove("open");setov.classList.remove("open");aiov.classList.remove("open");}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeEditor();dov.classList.remove("open");setov.classList.remove("open");aiov.classList.remove("open");plov.classList.remove("open");}});
 let toastT;function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("show"),3400);}
 render();
 </script>
