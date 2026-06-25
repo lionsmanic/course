@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>婦癌科會議排程</title>
+<style>
+  :root{
+    --ink:#15243a;          /* 深墨藍 */
+    --ink-soft:#3a4a63;
+    --paper:#f4f5f1;        /* 紙白 */
+    --card:#ffffff;
+    --line:#dfe2da;
+    --teal:#0f7a6e;         /* 重點青綠 */
+    --teal-soft:#e3f1ee;
+    --amber:#b5662e;        /* 全院/提醒 */
+    --amber-soft:#f6eadf;
+    --muted:#8a93a1;
+    --routine:#0f7a6e;
+    --center:#7a5cc0;       /* 癌症中心 */
+    --admin:#c08a2e;        /* 行政 */
+    --extra:#9aa3b0;        /* 外加 */
+    --shadow:0 1px 2px rgba(21,36,58,.06),0 8px 24px rgba(21,36,58,.07);
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei","Noto Sans TC","Segoe UI",sans-serif;
+    color:var(--ink);background:var(--paper);
+    line-height:1.5;-webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 20px 64px}
+
+  /* Header */
+  header.top{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px 24px;margin-bottom:18px}
+  .title h1{font-size:26px;font-weight:700;letter-spacing:.5px;margin:0}
+  .title p{margin:4px 0 0;color:var(--ink-soft);font-size:13px}
+  .nav{display:flex;align-items:center;gap:8px;margin-left:auto}
+  .nav .month{font-size:18px;font-weight:600;min-width:148px;text-align:center;font-variant-numeric:tabular-nums}
+  button{font:inherit;cursor:pointer;border-radius:9px;border:1px solid var(--line);
+    background:var(--card);color:var(--ink);padding:8px 12px;transition:.15s}
+  button:hover{border-color:var(--teal);color:var(--teal)}
+  button:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+  .iconbtn{width:38px;height:38px;padding:0;font-size:18px;line-height:1}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .toolbar .primary{background:var(--teal);color:#fff;border-color:var(--teal);font-weight:600}
+  .toolbar .primary:hover{filter:brightness(1.06);color:#fff}
+  .spacer{flex:1}
+
+  /* Legend */
+  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--ink-soft);margin:2px 0 16px}
+  .tag{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:9px;height:9px;border-radius:3px;display:inline-block}
+  .d-routine{background:var(--routine)} .d-center{background:var(--center)}
+  .d-admin{background:var(--admin)} .d-extra{background:var(--extra)} .d-all{background:var(--amber)}
+
+  /* Calendar */
+  .cal{background:transparent}
+  .week{display:grid;grid-template-columns:34px repeat(4,minmax(0,1fr)) 2.6fr repeat(2,minmax(0,1fr));
+    gap:8px;margin-bottom:8px;align-items:stretch}
+  .wlabel{display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);
+    font-weight:600;writing-mode:vertical-lr;letter-spacing:2px}
+  .day{background:var(--card);border:1px solid var(--line);border-radius:10px;min-height:64px;
+    padding:6px 8px;color:var(--ink-soft);font-size:13px;position:relative}
+  .day .num{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink)}
+  .day.dim{background:transparent;border-color:transparent;color:#c4c9c1}
+  .day.dim .num{color:#c8cdc4;font-weight:500}
+  .day.today .num{color:var(--teal)}
+  .day.today{box-shadow:inset 0 0 0 2px var(--teal-soft)}
+
+  /* Friday rail */
+  .fri{grid-column:6;min-height:104px;border-radius:var(--radius);cursor:pointer;
+    border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow);
+    padding:10px 12px;display:flex;flex-direction:column;gap:6px;transition:.15s}
+  .fri:hover{border-color:var(--teal)}
+  .fri:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+  .fri .frihead{display:flex;align-items:baseline;gap:8px}
+  .fri .num{font-size:18px}
+  .fri .frinote{font-size:11px;color:var(--muted)}
+  .fri.empty{border-style:dashed;box-shadow:none;background:#fbfcfa;align-items:center;justify-content:center}
+  .fri.empty .add{color:var(--muted);font-size:13px}
+  .fri.empty:hover .add{color:var(--teal)}
+  .fri.allhands{background:repeating-linear-gradient(135deg,#fff,#fff 9px,#faf3ec 9px,#faf3ec 18px);
+    border-color:#ecd9c6;cursor:pointer}
+  .fri.tumor::after{content:"婦癌 Combined Conf. 16:30 · 病理科";position:absolute;left:12px;bottom:6px;
+    font-size:10px;color:var(--muted)}
+  .fri.tumor{position:relative;padding-bottom:20px}
+
+  .chips{display:flex;flex-wrap:wrap;gap:5px}
+  .chip{font-size:11px;padding:2px 8px;border-radius:999px;background:#eef1ec;color:var(--ink-soft);
+    white-space:nowrap;border:1px solid transparent}
+  .chip.routine{background:var(--teal-soft);color:#0c5b52}
+  .chip.center{background:#efeafa;color:#5a44a0}
+  .chip.admin{background:#f6efdd;color:#8a6517}
+  .chip.extra{background:#eef0f3;color:#5d6675}
+  .chip.allhands{background:#f6eadf;color:var(--amber)}
+  .chip.drug{background:#fff;border:1px solid var(--teal);color:var(--teal);font-weight:600}
+  .fri .topic{font-size:13px;color:var(--ink);font-weight:600;line-height:1.35}
+  .fri .meta{font-size:11px;color:var(--muted)}
+  .ai-flag{font-size:10px;color:var(--teal);border:1px solid var(--teal-soft);background:var(--teal-soft);
+    border-radius:6px;padding:0 5px;margin-left:auto}
+
+  .weekhead{display:grid;grid-template-columns:34px repeat(4,minmax(0,1fr)) 2.6fr repeat(2,minmax(0,1fr));
+    gap:8px;margin-bottom:6px;font-size:12px;color:var(--muted)}
+  .weekhead span{text-align:center}
+  .weekhead .frih{color:var(--teal);font-weight:700}
+
+  /* Modal */
+  .overlay{position:fixed;inset:0;background:rgba(21,36,58,.38);display:none;align-items:center;
+    justify-content:center;padding:18px;z-index:20}
+  .overlay.open{display:flex}
+  .modal{background:var(--card);border-radius:16px;max-width:520px;width:100%;max-height:90vh;overflow:auto;
+    box-shadow:0 20px 60px rgba(21,36,58,.3);padding:22px}
+  .modal h2{margin:0 0 2px;font-size:18px}
+  .modal .sub{color:var(--muted);font-size:12px;margin-bottom:16px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;color:var(--ink-soft);font-weight:600;margin-bottom:6px}
+  .field input[type=text],.field textarea,.field select{width:100%;border:1px solid var(--line);
+    border-radius:9px;padding:9px 10px;font:inherit;color:var(--ink);background:#fff}
+  .field textarea{min-height:54px;resize:vertical}
+  .typegrid{display:flex;flex-wrap:wrap;gap:7px}
+  .typegrid label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);
+    border-radius:999px;padding:6px 11px;font-size:12px;cursor:pointer;font-weight:500;color:var(--ink-soft)}
+  .typegrid input{accent-color:var(--teal)}
+  .typegrid label.on{border-color:var(--teal);background:var(--teal-soft);color:#0c5b52}
+  .group-label{font-size:11px;color:var(--muted);margin:10px 0 4px;text-transform:uppercase;letter-spacing:1px}
+  .drugbox{background:#f7faf8;border:1px solid var(--teal-soft);border-radius:10px;padding:10px 12px;display:none}
+  .drugbox.show{display:block}
+  .drughint{font-size:12px;color:var(--ink-soft);margin-top:8px;min-height:18px}
+  .drughint b{color:var(--teal)}
+  .row{display:flex;gap:10px}
+  .row .field{flex:1}
+  .modal-actions{display:flex;gap:8px;margin-top:8px}
+  .modal-actions .save{background:var(--teal);color:#fff;border-color:var(--teal);font-weight:600;flex:1}
+  .modal-actions .save:hover{filter:brightness(1.06);color:#fff}
+  .modal-actions .del{color:#b03030;border-color:#e7c9c9}
+  .modal-actions .del:hover{background:#fbeded;border-color:#b03030;color:#b03030}
+
+  /* Drug history table */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+  th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+  td.mo{font-variant-numeric:tabular-nums;font-weight:600}
+  .overdue td.mo{color:var(--amber)}
+  .kindtag{font-size:10px;padding:1px 6px;border-radius:5px;background:#eef1ec;color:var(--ink-soft)}
+  .kindtag.routine{background:var(--teal-soft);color:#0c5b52}
+  .lead{background:var(--teal-soft);border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:14px;color:#0c5b52}
+
+  /* Toast */
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(16px);
+    background:var(--ink);color:#fff;padding:11px 16px;border-radius:10px;font-size:13px;opacity:0;
+    pointer-events:none;transition:.25s;max-width:90vw;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:40}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  @media (max-width:760px){
+    .weekhead{display:none}
+    .week{grid-template-columns:26px 1fr 1fr;grid-auto-rows:auto}
+    .wlabel{writing-mode:horizontal-tb}
+    .day{min-height:38px;font-size:12px}
+    .fri{grid-column:auto;grid-row:auto}
+    .week>.fri{grid-column:1 / -1;order:9}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="title">
+      <h1>婦癌科會議排程</h1>
+      <p>科內 routine 為主 · 會議排在週五 · AI 先排、再自由增減與合辦</p>
+    </div>
+    <div class="nav">
+      <button class="iconbtn" id="prev" aria-label="上個月">‹</button>
+      <div class="month" id="monthLabel"></div>
+      <button class="iconbtn" id="next" aria-label="下個月">›</button>
+      <button id="todayBtn">今天</button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button class="primary" id="autoMonth">AI 自動排本月</button>
+    <button id="autoYear">AI 自動排未來 12 個月</button>
+    <button id="drugBtn">藥物履歷</button>
+    <span class="spacer"></span>
+    <button id="exportBtn">匯出 JSON</button>
+    <button id="importBtn">匯入</button>
+    <button id="clearMonth" title="清掉本月 AI 自動排定（手動排的保留）">清本月 AI</button>
+    <input type="file" id="importFile" accept="application/json" hidden>
+  </div>
+
+  <div class="legend">
+    <span class="tag"><span class="dot d-routine"></span>科內 routine（文獻／新藥，每月一次）</span>
+    <span class="tag"><span class="dot d-center"></span>癌症中心（案例檢討／品質／指引，需要才辦）</span>
+    <span class="tag"><span class="dot d-admin"></span>行政（staff meeting 等）</span>
+    <span class="tag"><span class="dot d-extra"></span>外加（SIV／外賓／檢驗）</span>
+    <span class="tag"><span class="dot d-all"></span>第一個週五＝全院 meeting，不排</span>
+  </div>
+
+  <div class="weekhead" id="weekhead">
+    <span></span><span>一</span><span>二</span><span>三</span><span>四</span>
+    <span class="frih">五</span><span>六</span><span>日</span>
+  </div>
+  <div class="cal" id="cal"></div>
+</div>
+
+<!-- Editor modal -->
+<div class="overlay" id="editorOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="edTitle">
+    <h2 id="edTitle">排定會議</h2>
+    <div class="sub" id="edSub"></div>
+
+    <div class="field">
+      <div class="group-label">科內 routine（為主）</div>
+      <div class="typegrid" data-group="routine">
+        <label><input type="checkbox" value="文獻研讀"><span>文獻研讀 Journal／Book</span></label>
+        <label><input type="checkbox" value="新藥／試驗結果分享"><span>新藥／試驗結果分享</span></label>
+      </div>
+      <div class="group-label">癌症中心要求（需要才辦，可合辦）</div>
+      <div class="typegrid" data-group="center">
+        <label><input type="checkbox" value="案例檢討／品質／必要提報"><span>案例檢討／品質／必要提報</span></label>
+        <label><input type="checkbox" value="指引更新"><span>指引更新</span></label>
+      </div>
+      <div class="group-label">行政（需要才辦，可合辦）</div>
+      <div class="typegrid" data-group="admin">
+        <label><input type="checkbox" value="Staff meeting／行政"><span>Staff meeting／行政</span></label>
+      </div>
+      <div class="group-label">外加（外部帶進來）</div>
+      <div class="typegrid" data-group="extra">
+        <label><input type="checkbox" value="SIV 試驗啟動"><span>SIV 試驗啟動</span></label>
+        <label><input type="checkbox" value="外賓／專題演講"><span>外賓／專題演講</span></label>
+        <label><input type="checkbox" value="基因／檢驗／系統介紹"><span>基因／檢驗／系統介紹</span></label>
+      </div>
+    </div>
+
+    <div class="drugbox" id="drugbox">
+      <div class="field" style="margin-bottom:0">
+        <label for="drugInput">藥物／試驗（排「新藥／試驗結果分享」時填）</label>
+        <div class="row">
+          <input type="text" id="drugInput" list="drugList" placeholder="例：Yondelis" style="flex:1">
+          <button type="button" id="suggestDrug" style="white-space:nowrap">AI 建議最久沒講的</button>
+        </div>
+        <datalist id="drugList"></datalist>
+        <div class="drughint" id="drugHint"></div>
+      </div>
+    </div>
+
+    <div class="field"><label for="topicInput">主題</label>
+      <input type="text" id="topicInput" placeholder="會議主題"></div>
+    <div class="row">
+      <div class="field"><label for="presInput">主講</label>
+        <input type="text" id="presInput" placeholder="主講人"></div>
+      <div class="field"><label for="timeInput">時間</label>
+        <input type="text" id="timeInput" value="07:30–08:00"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="locInput">地點</label>
+        <input type="text" id="locInput" value="KB2 討論室"></div>
+    </div>
+    <div class="field"><label for="noteInput">備註</label>
+      <textarea id="noteInput" placeholder="例：與案例檢討合辦"></textarea></div>
+
+    <div class="modal-actions">
+      <button class="save" id="saveMeeting">儲存</button>
+      <button class="del" id="deleteMeeting">刪除</button>
+      <button id="closeEditor">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- Drug history modal -->
+<div class="overlay" id="drugOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="drTitle">
+    <h2 id="drTitle">藥物履歷</h2>
+    <div class="sub">每個藥物上次在科內介紹是多久以前（含已排定的未來場次），最久沒講的排在最上面。</div>
+    <div class="lead" id="drugLead"></div>
+    <table><thead><tr><th>藥物／試驗</th><th>類別</th><th>上次介紹</th><th>距今</th><th>次數</th></tr></thead>
+      <tbody id="drugTable"></tbody></table>
+    <div class="modal-actions" style="margin-top:16px">
+      <button id="closeDrug" style="flex:1">關閉</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ---------- constants ---------- */
+const STORE_KEY = "gynonc-schedule-v1";
+const TYPE_CLASS = {
+  "文獻研讀":"routine","新藥／試驗結果分享":"routine",
+  "案例檢討／品質／必要提報":"center","指引更新":"center",
+  "Staff meeting／行政":"admin",
+  "SIV 試驗啟動":"extra","外賓／專題演講":"extra","基因／檢驗／系統介紹":"extra"
+};
+// 自動排程的新藥建議池（只用科內實際會分享的藥）
+const AUTO_POOL = ["Enhertu (T-DXd)","Yondelis","Vegzelma","DUO-E","子宮頸癌免疫治療"];
+// 由過去 24 個月學術活動表整理出的藥物／試驗介紹紀錄
+const SEED_HISTORY = [
+  {drug:"Enhertu (T-DXd)",date:"2024-03-22",kind:"routine"},
+  {drug:"Enhertu (T-DXd)",date:"2025-03-28",kind:"routine"},
+  {drug:"Yondelis",date:"2024-06-21",kind:"routine"},
+  {drug:"Yondelis",date:"2024-11-29",kind:"routine"},
+  {drug:"Vegzelma",date:"2025-11-14",kind:"routine"},
+  {drug:"Vegzelma",date:"2026-03-27",kind:"routine"},
+  {drug:"DUO-E",date:"2026-03-27",kind:"routine"},
+  {drug:"子宮頸癌免疫治療",date:"2025-01-10",kind:"routine"},
+  {drug:"AZ DESTINY PanTumor02",date:"2024-05-24",kind:"外加"},
+  {drug:"Rilvegostomig (AZD2936)",date:"2024-10-04",kind:"外加"},
+  {drug:"Sacituzumab tirumotecan (MK-2870)",date:"2025-05-16",kind:"外加"},
+  {drug:"Sacituzumab tirumotecan (MK-2870)",date:"2026-01-09",kind:"外加"},
+  {drug:"Sacituzumab tirumotecan (MK-2870)",date:"2026-03-20",kind:"外加"},
+  {drug:"Selinexor",date:"2025-07-04",kind:"外加"},
+  {drug:"Dostarlimab (DOVE)",date:"2025-08-08",kind:"外加"},
+  {drug:"T-DXd (ovarian HER2)",date:"2025-08-15",kind:"外加"},
+  {drug:"Raludotatug deruxtecan (R-DXd)",date:"2026-02-13",kind:"外加"},
+  {drug:"Relacorilant (ROSELLA)",date:"2026-05-29",kind:"外加"}
+];
+
+/* ---------- state ---------- */
+let state = load();
+let view = new Date(); view.setDate(1);
+let editingISO = null;
+
+function load(){
+  try{ const r = JSON.parse(localStorage.getItem(STORE_KEY)); if(r&&r.meetings) return r; }catch(e){}
+  return {meetings:{}};
+}
+function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){ toast("無法儲存（瀏覽器封鎖了本機儲存）"); } }
+
+/* ---------- date helpers ---------- */
+const pad = n => String(n).padStart(2,"0");
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+function parseISO(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
+function monthsAgo(fromISO, ref){
+  const a = parseISO(fromISO), b = ref;
+  let m = (b.getFullYear()-a.getFullYear())*12 + (b.getMonth()-a.getMonth());
+  if(b.getDate() < a.getDate()) m -= 1;
+  return Math.max(0,m);
+}
+// Friday ordinal within its month (1st Friday, 2nd Friday, ...)
+function fridayOrdinal(d){ return Math.floor((d.getDate()-1)/7)+1; }
+
+/* ---------- drug history ---------- */
+function allDrugRecords(){
+  const recs = SEED_HISTORY.slice();
+  for(const [k,m] of Object.entries(state.meetings)){
+    if(m.drug && m.types && m.types.includes("新藥／試驗結果分享"))
+      recs.push({drug:m.drug.trim(), date:k, kind:"routine"});
+  }
+  return recs;
+}
+function drugSummary(ref=new Date()){
+  const map = new Map();
+  for(const r of allDrugRecords()){
+    const key = r.drug;
+    if(!map.has(key)) map.set(key,{drug:key,dates:[],kind:r.kind});
+    map.get(key).dates.push(r.date);
+    if(r.kind==="routine") map.get(key).kind="routine";
+  }
+  const out=[];
+  for(const v of map.values()){
+    v.dates.sort();
+    const last = v.dates[v.dates.length-1];
+    out.push({drug:v.drug,last,months:monthsAgo(last,ref),count:v.dates.length,kind:v.kind});
+  }
+  out.sort((a,b)=> b.months-a.months);
+  return out;
+}
+function lastForDrug(drug, ref=new Date()){
+  if(!drug) return null;
+  const recs = allDrugRecords().filter(r=>r.drug.trim()===drug.trim()).map(r=>r.date).sort();
+  if(!recs.length) return null;
+  const last = recs[recs.length-1];
+  return {last, months:monthsAgo(last,ref)};
+}
+// 建議「最久沒講」的藥（給定參考日期 + 已在本次自動排程暫定的藥）
+function suggestDrug(refDate, pending){
+  pending = pending || {};
+  let best=null, bestM=-1;
+  for(const drug of AUTO_POOL){
+    const info = lastForDrug(drug, refDate);
+    let m = info ? info.months : 999;
+    if(pending[drug]){ // 本次自動排程已先排過 → 視為剛講
+      const pm = monthsAgo(pending[drug], refDate); m = pm;
+    }
+    if(m>bestM){ bestM=m; best=drug; }
+  }
+  return {drug:best, months:bestM};
+}
+
+/* ---------- rendering ---------- */
+const cal = document.getElementById("cal");
+function render(){
+  document.getElementById("monthLabel").textContent =
+    `${view.getFullYear()} 年 ${view.getMonth()+1} 月`;
+  cal.innerHTML="";
+  const y=view.getFullYear(), mo=view.getMonth();
+  const first=new Date(y,mo,1);
+  // Monday-start offset
+  let start=new Date(first);
+  const dow=(first.getDay()+6)%7; // Mon=0
+  start.setDate(first.getDate()-dow);
+  const todayISO=iso(new Date());
+  let cur=new Date(start), wIdx=0;
+  while(true){
+    if(cur > new Date(y,mo+1,0) && cur.getDay()===1) break; // past month end, next Monday
+    const week=document.createElement("div"); week.className="week";
+    const wl=document.createElement("div"); wl.className="wlabel"; wl.textContent="W"+(wIdx+1);
+    week.appendChild(wl);
+    for(let i=0;i<7;i++){
+      const inMonth = cur.getMonth()===mo;
+      const isFri = i===4;
+      if(isFri){
+        week.appendChild(buildFriday(new Date(cur), inMonth, todayISO));
+      }else{
+        const cell=document.createElement("div");
+        cell.className="day"+(inMonth?"":" dim")+(iso(cur)===todayISO?" today":"");
+        cell.innerHTML=`<span class="num">${cur.getDate()}</span>`;
+        week.appendChild(cell);
+      }
+      cur.setDate(cur.getDate()+1);
+    }
+    cal.appendChild(week);
+    wIdx++;
+    if(cur.getMonth()!==mo && cur.getDay()===1 && cur>new Date(y,mo+1,0)) break;
+    if(wIdx>6) break;
+  }
+}
+
+function buildFriday(d, inMonth, todayISO){
+  const el=document.createElement("div");
+  el.className="fri";
+  const key=iso(d);
+  const ord=fridayOrdinal(d);
+  const m=state.meetings[key];
+  if(!inMonth){
+    el.className="day dim"; el.style.gridColumn="6";
+    el.innerHTML=`<span class="num">${d.getDate()}</span>`;
+    return el;
+  }
+  if(key===todayISO) el.classList.add("today");
+  if(ord===4) el.classList.add("tumor"); // 第4個週五：tumor board 參考
+  el.tabIndex=0;
+  el.setAttribute("role","button");
+  el.addEventListener("click",()=>openEditor(key));
+  el.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();openEditor(key);} });
+
+  if(m){
+    const chips=(m.types||[]).map(t=>`<span class="chip ${TYPE_CLASS[t]||""}">${t}</span>`).join("");
+    const drugChip = m.drug ? `<span class="chip drug">${m.drug}${drugChipAge(m.drug,d)}</span>` : "";
+    el.innerHTML=`
+      <div class="frihead"><span class="num">${d.getDate()}</span>
+        <span class="frinote">週五 · 第${ord}個</span>
+        ${m.ai?'<span class="ai-flag">AI 排</span>':''}</div>
+      <div class="chips">${chips}${drugChip}</div>
+      ${m.topic?`<div class="topic">${escapeHTML(m.topic)}</div>`:""}
+      <div class="meta">${[m.presenter,m.time,m.location].filter(Boolean).map(escapeHTML).join(" · ")}</div>`;
+  }else if(ord===1){
+    el.classList.add("allhands");
+    el.innerHTML=`<div class="frihead"><span class="num">${d.getDate()}</span>
+      <span class="frinote">週五 · 第1個</span></div>
+      <div class="chips"><span class="chip allhands">全院 meeting · 不排</span></div>`;
+  }else{
+    el.classList.add("empty");
+    el.innerHTML=`<div class="frihead"><span class="num">${d.getDate()}</span>
+      <span class="frinote">週五 · 第${ord}個</span></div>
+      <div class="add">＋ 排會議</div>`;
+  }
+  return el;
+}
+function drugChipAge(drug,d){
+  const info=lastForDrug(drug,d);
+  if(!info) return " · 首次";
+  if(info.months<=0) return "";
+  return ` · 上次 ${info.months} 月前`;
+}
+function escapeHTML(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+/* ---------- editor ---------- */
+const ov=document.getElementById("editorOverlay");
+function openEditor(key){
+  editingISO=key;
+  const d=parseISO(key), ord=fridayOrdinal(d);
+  document.getElementById("edTitle").textContent = state.meetings[key] ? "編輯會議" : "排定會議";
+  document.getElementById("edSub").textContent =
+    `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日（週五 · 第${ord}個）`
+    + (ord===1?" — 第一個週五通常是全院 meeting，一般不排":"")
+    + (ord===4?" — 同日下午 16:30 另有婦癌 Combined Conference（tumor board）":"");
+  const m=state.meetings[key]||{};
+  // reset checkboxes
+  document.querySelectorAll(".typegrid input").forEach(cb=>{
+    cb.checked = (m.types||[]).includes(cb.value);
+    cb.parentElement.classList.toggle("on",cb.checked);
+  });
+  document.getElementById("topicInput").value=m.topic||"";
+  document.getElementById("presInput").value=m.presenter||"";
+  document.getElementById("timeInput").value=m.time||"07:30–08:00";
+  document.getElementById("locInput").value=m.location||"KB2 討論室";
+  document.getElementById("noteInput").value=m.notes||"";
+  document.getElementById("drugInput").value=m.drug||"";
+  fillDrugList();
+  toggleDrugBox(); updateDrugHint();
+  document.getElementById("deleteMeeting").style.display = state.meetings[key]?"":"none";
+  ov.classList.add("open");
+  setTimeout(()=>document.getElementById("topicInput").focus(),50);
+}
+function closeEditor(){ ov.classList.remove("open"); editingISO=null; }
+function selectedTypes(){
+  return [...document.querySelectorAll(".typegrid input:checked")].map(cb=>cb.value);
+}
+function toggleDrugBox(){
+  const on=selectedTypes().includes("新藥／試驗結果分享");
+  document.getElementById("drugbox").classList.toggle("show",on);
+}
+function fillDrugList(){
+  const names=[...new Set([...AUTO_POOL, ...allDrugRecords().map(r=>r.drug)])];
+  document.getElementById("drugList").innerHTML=names.map(n=>`<option value="${escapeHTML(n)}">`).join("");
+}
+function updateDrugHint(){
+  const drug=document.getElementById("drugInput").value.trim();
+  const hint=document.getElementById("drugHint");
+  if(!drug){ hint.innerHTML="輸入或選一個藥，會顯示上次介紹是多久以前。"; return; }
+  const ref = editingISO?parseISO(editingISO):new Date();
+  const info=lastForDrug(drug,ref);
+  hint.innerHTML = info
+    ? `上次介紹：<b>${info.last}</b>（約 <b>${info.months}</b> 個月前）`
+    : `<b>${escapeHTML(drug)}</b>：尚無紀錄，是首次介紹。`;
+}
+document.querySelectorAll(".typegrid input").forEach(cb=>{
+  cb.addEventListener("change",()=>{ cb.parentElement.classList.toggle("on",cb.checked); toggleDrugBox(); });
+});
+document.getElementById("drugInput").addEventListener("input",updateDrugHint);
+document.getElementById("suggestDrug").addEventListener("click",()=>{
+  const ref = editingISO?parseISO(editingISO):new Date();
+  const s=suggestDrug(ref,{});
+  document.getElementById("drugInput").value=s.drug;
+  updateDrugHint();
+  toast(`建議：${s.drug}（最久沒講，約 ${s.months===999?"從未介紹":s.months+" 個月前"}）`);
+});
+document.getElementById("saveMeeting").addEventListener("click",()=>{
+  const types=selectedTypes();
+  if(!types.length){ toast("請至少選一個會議類型"); return; }
+  const drug=document.getElementById("drugInput").value.trim();
+  state.meetings[editingISO]={
+    types,
+    drug: types.includes("新藥／試驗結果分享")?drug:"",
+    topic:document.getElementById("topicInput").value.trim(),
+    presenter:document.getElementById("presInput").value.trim(),
+    time:document.getElementById("timeInput").value.trim(),
+    location:document.getElementById("locInput").value.trim(),
+    notes:document.getElementById("noteInput").value.trim(),
+    ai:false
+  };
+  save(); closeEditor(); render(); toast("已儲存");
+});
+document.getElementById("deleteMeeting").addEventListener("click",()=>{
+  delete state.meetings[editingISO]; save(); closeEditor(); render(); toast("已刪除");
+});
+document.getElementById("closeEditor").addEventListener("click",closeEditor);
+ov.addEventListener("click",e=>{ if(e.target===ov) closeEditor(); });
+
+/* ---------- auto schedule ---------- */
+function fridaysOf(y,mo){
+  const out=[]; const d=new Date(y,mo,1);
+  while(d.getMonth()===mo){ if(d.getDay()===5) out.push(new Date(d)); d.setDate(d.getDate()+1); }
+  return out;
+}
+function autoMonth(y,mo,pending,silent){
+  pending=pending||{};
+  const fris=fridaysOf(y,mo);
+  if(fris.length<2){ if(!silent) toast("本月週五不足"); return null; }
+  const target=fris[1]; // 第2個週五（跳過第1個全院）
+  const key=iso(target);
+  if(state.meetings[key]){ if(!silent) toast("第2個週五已有安排，未覆蓋"); return state.meetings[key].drug||null; }
+  const s=suggestDrug(target,pending);
+  state.meetings[key]={
+    types:["文獻研讀","新藥／試驗結果分享"],
+    drug:s.drug,
+    topic:"科內 routine：文獻研讀 ＋ 新藥／試驗結果分享",
+    presenter:"",
+    time:"07:30–08:00",
+    location:"KB2 討論室",
+    notes:"AI 依科內 routine 自動排定，可自由增減或與案例檢討／指引／行政合辦",
+    ai:true
+  };
+  pending[s.drug]=key;
+  return s;
+}
+document.getElementById("autoMonth").addEventListener("click",()=>{
+  const s=autoMonth(view.getFullYear(),view.getMonth(),{});
+  save(); render();
+  if(s&&s.drug){
+    const ageTxt = s.months===999?"從未介紹過":`上次約 ${s.months} 個月前`;
+    toast(`已排第2個週五：文獻 ＋ 新藥分享，建議講 ${s.drug}（${ageTxt}）`);
+  }
+});
+document.getElementById("autoYear").addEventListener("click",()=>{
+  const pending={}; let count=0;
+  const start=new Date(view);
+  for(let i=0;i<12;i++){
+    const y=start.getFullYear(), mo=start.getMonth()+i;
+    const dd=new Date(y,mo,1);
+    const before=Object.keys(state.meetings).length;
+    autoMonth(dd.getFullYear(),dd.getMonth(),pending,true);
+    if(Object.keys(state.meetings).length>before) count++;
+  }
+  save(); render();
+  toast(`已為未來 12 個月排定 ${count} 場科內 routine（自動輪替藥物，避免短期重複）`);
+});
+document.getElementById("clearMonth").addEventListener("click",()=>{
+  const y=view.getFullYear(),mo=view.getMonth();let n=0;
+  for(const k of Object.keys(state.meetings)){
+    const d=parseISO(k);
+    if(d.getFullYear()===y&&d.getMonth()===mo&&state.meetings[k].ai){ delete state.meetings[k]; n++; }
+  }
+  save(); render(); toast(n?`已清除本月 ${n} 場 AI 自動排定`:"本月沒有 AI 自動排定可清");
+});
+
+/* ---------- drug history modal ---------- */
+const dov=document.getElementById("drugOverlay");
+document.getElementById("drugBtn").addEventListener("click",()=>{
+  const rows=drugSummary(new Date());
+  const lead=rows.find(r=>AUTO_POOL.includes(r.drug)) || rows[0];
+  document.getElementById("drugLead").innerHTML = lead
+    ? `最久沒講：<b>${escapeHTML(lead.drug)}</b> — 上次 ${lead.last}，約 ${lead.months} 個月前，建議優先排。`
+    : "尚無藥物紀錄。";
+  document.getElementById("drugTable").innerHTML = rows.map(r=>`
+    <tr class="${r.months>=12?'overdue':''}">
+      <td>${escapeHTML(r.drug)}</td>
+      <td><span class="kindtag ${r.kind==='routine'?'routine':''}">${r.kind==='routine'?'科內':'外加'}</span></td>
+      <td>${r.last}</td>
+      <td class="mo">${r.months} 個月</td>
+      <td>${r.count}</td>
+    </tr>`).join("");
+  dov.classList.add("open");
+});
+document.getElementById("closeDrug").addEventListener("click",()=>dov.classList.remove("open"));
+dov.addEventListener("click",e=>{ if(e.target===dov) dov.classList.remove("open"); });
+
+/* ---------- nav, import/export ---------- */
+document.getElementById("prev").addEventListener("click",()=>{view.setMonth(view.getMonth()-1);render();});
+document.getElementById("next").addEventListener("click",()=>{view.setMonth(view.getMonth()+1);render();});
+document.getElementById("todayBtn").addEventListener("click",()=>{view=new Date();view.setDate(1);render();});
+document.getElementById("exportBtn").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="婦癌科會議排程.json"; a.click(); URL.revokeObjectURL(a.href);
+  toast("已匯出 JSON（可備份或換裝置時匯入）");
+});
+document.getElementById("importBtn").addEventListener("click",()=>document.getElementById("importFile").click());
+document.getElementById("importFile").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d&&d.meetings){state=d;save();render();toast("已匯入");}else toast("檔案格式不符"); }
+    catch(err){ toast("無法讀取檔案"); } };
+  r.readAsText(f); e.target.value="";
+});
+
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){closeEditor();dov.classList.remove("open");} });
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg){
+  const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),3200);
+}
+
+render();
+</script>
+</body>
+</html>
