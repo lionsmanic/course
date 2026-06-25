@@ -225,6 +225,7 @@
         <datalist id="drugList"></datalist>
         <div class="drughint" id="drugHint"></div>
         <button type="button" class="aibtn" id="drugProgress" style="margin-top:8px">AI 查這個藥近期進展</button>
+        <button type="button" class="aibtn" id="aiRefresh" style="margin-top:8px">AI 重整：找最新或久未討論的主題</button>
       </div>
     </div>
     <div class="field"><label for="topicInput">主題</label><input type="text" id="topicInput" placeholder="會議主題"></div>
@@ -656,6 +657,42 @@ ${hist}
   openAI(`AI 查「${drug}」近期進展`,`<span class="spin"></span>搜尋中…`,[],"");
   try{const{text,sources}=await aiComplete(prompt,true);openAI(`AI 查「${drug}」近期進展`,aiText(text),sources,"");}
   catch(e){openAI(`AI 查「${drug}」近期進展`,aiText("發生錯誤："+e.message),[],"");}
+});
+
+/* ---------- AI: re-curate review topic (latest trials or long-overdue topics) ---------- */
+document.getElementById("aiRefresh").addEventListener("click",async()=>{
+  if(!aiReady()){toast("請先在「AI 設定」填金鑰");openSettings();return;}
+  const ref=editingKey?parseISO(editingKey):new Date();
+  const rows=drugSummary(ref);
+  const listTxt=rows.length?rows.map(r=>`- ${r.drug}：上次 ${r.last}（${r.months} 個月前）`).join("\n"):"（尚無紀錄）";
+  const today=iso(new Date());
+  const prompt=
+`你是婦癌科（gynecologic oncology）學術會議規劃助理。今天 ${today}。
+「藥物使用與最新文獻 review」可報告的內容：婦癌（卵巢癌、子宮內膜癌、子宮頸癌、外陰／陰道癌、滋養細胞疾病等）的藥物治療、重要臨床試驗與治療策略。
+本科過去介紹過的藥物／主題與最近一次日期（距今）：
+${listTxt}
+
+請用網路搜尋，從下列兩個方向挑「一個」最值得在下次 review 報告的主題：
+(1) 最近約 6–12 個月內，發表在重要期刊（NEJM、Lancet／Lancet Oncology、JCO、JAMA、Annals of Oncology、Gynecologic Oncology 等）或重要會議（ASCO、ESMO、SGO、IGCS）的婦癌重大臨床試驗；
+(2) 本科已很久沒討論、但臨床上重要、適合重溫的藥物治療或婦癌主題。
+請用繁體中文、精簡（250 字內），說明為何值得報（新發表 or 久未討論）。最後務必獨立兩行，格式固定：
+建議主題：（一句話主題，可含試驗名稱）
+建議藥物：（若有具體藥物則填藥名，否則填「—」）`;
+  openAI("AI 重整：找 review 主題",`<span class="spin"></span>搜尋婦癌最新與久未討論的主題中…`,[],"");
+  try{
+    const{text,sources}=await aiComplete(prompt,true);
+    const tm=text.match(/建議主題[：:]\s*(.+)/);const dm=text.match(/建議藥物[：:]\s*(.+)/);
+    const topic=tm?tm[1].trim():"";let drug=dm?dm[1].trim():"";if(drug==="—"||drug==="-")drug="";
+    const extra=(topic||drug)?`<button class="save" id="applyRefresh" style="flex:1">套用到這場 review</button>`:"";
+    openAI("AI 重整：找 review 主題",aiText(text),sources,extra);
+    if(topic||drug){document.getElementById("applyRefresh").addEventListener("click",()=>{
+      aiov.classList.remove("open");
+      document.querySelectorAll(".typegrid input").forEach(cb=>{if(cb.value===DRUG_TYPE&&!cb.checked){cb.checked=true;cb.parentElement.classList.add("on");}});
+      toggleDrugBox();
+      if(topic)document.getElementById("topicInput").value=topic;
+      if(drug)document.getElementById("drugInput").value=drug;
+      updateDrugHint();toast("已套用，請確認後儲存");});}
+  }catch(e){openAI("AI 重整：找 review 主題",aiText("發生錯誤："+e.message+"\n請確認 AI 設定、模型與 API 額度。"),[],"");}
 });
 
 /* ---------- AI: verbal plan a meeting ---------- */
