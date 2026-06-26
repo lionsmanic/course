@@ -162,6 +162,7 @@
   <div class="toolbar">
     <button class="primary" id="autoMonth">AI 自動排本月</button>
     <button id="autoYear">AI 自動排未來 12 個月</button>
+    <button id="reshuffle" title="清掉本月 AI 排定後，用隨機順序與選藥重新生成一份">AI 重排本月</button>
     <button id="planBtn">AI 安排一場</button>
     <button id="drugBtn">藥物履歷</button>
     <button id="settingsBtn">AI 設定</button>
@@ -227,6 +228,11 @@
         <button type="button" class="aibtn" id="drugProgress" style="margin-top:8px">AI 查這個藥近期進展</button>
         <button type="button" class="aibtn" id="aiRefresh" style="margin-top:8px">AI 重整：找最新或久未討論的主題</button>
       </div>
+    </div>
+    <div class="drugbox" id="journalbox">
+      <div style="font-size:12px;color:var(--ink-soft);font-weight:600;margin-bottom:8px">Journal reading 選文</div>
+      <button type="button" class="aibtn" id="journalPick" style="width:100%">AI 挑近期重要期刊文章讓我勾選</button>
+      <div class="helptext" style="margin-top:6px">AI 會掃描重要國際／腫瘤／婦癌期刊，挑近一週～一個月內與婦癌相關、討論度較高的文章，列成清單讓你勾選後加入。</div>
     </div>
     <div class="field"><label for="topicInput">主題</label><input type="text" id="topicInput" placeholder="會議主題"></div>
     <div class="row">
@@ -377,6 +383,13 @@ function suggestDrug(refDate,pending){pending=pending||{};let best=null,bestM=-1
   for(const drug of AUTO_POOL){const info=lastForDrug(drug,refDate);let m=info?info.months:999;
     if(pending[drug])m=monthsAgo(pending[drug],refDate);if(m>bestM){bestM=m;best=drug;}}
   return{drug:best,months:bestM};}
+function shuffleArr(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function suggestDrugRandom(refDate,pending){pending=pending||{};
+  const arr=AUTO_POOL.map(drug=>{const info=lastForDrug(drug,refDate);let m=info?info.months:999;if(pending[drug])m=monthsAgo(pending[drug],refDate);return{drug,m};}).sort((a,b)=>b.m-a.m);
+  const top=arr.slice(0,Math.min(3,arr.length));const pick=top[Math.floor(Math.random()*top.length)];
+  return{drug:pick.drug,months:pick.m};}
+function parseJSONLoose(t){if(!t)return null;let s=t.replace(/```json/gi,"").replace(/```/g,"").trim();
+  const a=s.indexOf("["),b=s.lastIndexOf("]");if(a>=0&&b>a)s=s.slice(a,b+1);try{return JSON.parse(s);}catch(e){return null;}}
 
 /* ---------- render ---------- */
 const cal=document.getElementById("cal");
@@ -459,7 +472,9 @@ function openEditor(key,id,prefill){
 }
 function closeEditor(){ov.classList.remove("open");editingKey=null;editingId=null;}
 function selectedTypes(){return[...document.querySelectorAll(".typegrid input:checked")].map(cb=>cb.value);}
-function toggleDrugBox(){document.getElementById("drugbox").classList.toggle("show",selectedTypes().includes(DRUG_TYPE));}
+function toggleDrugBox(){const t=selectedTypes();
+  document.getElementById("drugbox").classList.toggle("show",t.includes(DRUG_TYPE));
+  document.getElementById("journalbox").classList.toggle("show",t.includes("Journal reading"));}
 function fillDrugList(){const names=[...new Set([...AUTO_POOL,...allDrugRecords().map(r=>r.drug)])];
   document.getElementById("drugList").innerHTML=names.map(n=>`<option value="${escapeHTML(n)}">`).join("");}
 function updateDrugHint(){const drug=document.getElementById("drugInput").value.trim();const hint=document.getElementById("drugHint");
@@ -490,17 +505,18 @@ ov.addEventListener("click",e=>{if(e.target===ov)closeEditor();});
 
 /* ---------- auto schedule (rule-based, 擇一輪替) ---------- */
 function fridaysOf(y,mo){const out=[];const d=new Date(y,mo,1);while(d.getMonth()===mo){if(d.getDay()===5)out.push(new Date(d));d.setDate(d.getDate()+1);}return out;}
-function autoMonth(y,mo,ctx,silent){
-  ctx=ctx||{pending:{},cycle:0};const fris=fridaysOf(y,mo);let made=0;
+function autoMonth(y,mo,ctx,opts){
+  ctx=ctx||{pending:{},cycle:0};opts=opts||{};const fris=fridaysOf(y,mo);let made=0;
   const quarter=(mo%3===0);let firstNew=true;
+  const order=opts.shuffle?shuffleArr(ROUTINE_CYCLE.slice()):ROUTINE_CYCLE;
   for(const f of fris){
     if(fridayOrdinal(f)===1)continue;
     const key=iso(f);const arr=state.meetings[key]||[];
     if(arr.some(m=>m.ai&&m.routine))continue;
     let type,drug="";
     if(quarter&&firstNew){type="臨床試驗進度匯總";}
-    else{type=ROUTINE_CYCLE[ctx.cycle%ROUTINE_CYCLE.length];ctx.cycle++;}
-    if(type===DRUG_TYPE){const s=suggestDrug(f,ctx.pending);drug=s.drug;ctx.pending[drug]=key;}
+    else{type=order[ctx.cycle%order.length];ctx.cycle++;}
+    if(type===DRUG_TYPE){const s=opts.shuffle?suggestDrugRandom(f,ctx.pending):suggestDrug(f,ctx.pending);drug=s.drug;ctx.pending[drug]=key;}
     arr.push({id:uid(),types:[type],drug,topic:type+(drug?`：${drug}`:""),presenter:"",time:"07:30–08:00",
       location:"KB2 討論室",notes:"AI 依科內 routine 自動排定（擇一輪替），可自由增減或合辦",ai:true,routine:true});
     state.meetings[key]=arr;made++;firstNew=false;
@@ -512,8 +528,14 @@ document.getElementById("autoMonth").addEventListener("click",()=>{
   toast(r.made?`已排本月 ${r.made} 個週五（Journal／Book／藥物 review 擇一輪替${view.getMonth()%3===0?"，本季含臨床試驗進度匯總":""}）`:"本月可排的週五都已排過");});
 document.getElementById("autoYear").addEventListener("click",()=>{
   const ctx={pending:{},cycle:0};let total=0;const start=new Date(view);
-  for(let i=0;i<12;i++){const dd=new Date(start.getFullYear(),start.getMonth()+i,1);total+=autoMonth(dd.getFullYear(),dd.getMonth(),ctx,true).made;}
+  for(let i=0;i<12;i++){const dd=new Date(start.getFullYear(),start.getMonth()+i,1);total+=autoMonth(dd.getFullYear(),dd.getMonth(),ctx).made;}
   save();render();toast(`已排未來 12 個月共 ${total} 場（每週五擇一：Journal／Book／藥物 review 輪替，每季一次臨床試驗進度匯總）`);});
+document.getElementById("reshuffle").addEventListener("click",()=>{
+  const y=view.getFullYear(),mo=view.getMonth();
+  for(const k of Object.keys(state.meetings)){const d=parseISO(k);
+    if(d.getFullYear()===y&&d.getMonth()===mo){const a=state.meetings[k].filter(m=>!(m.ai&&m.routine));if(a.length)state.meetings[k]=a;else delete state.meetings[k];}}
+  const r=autoMonth(y,mo,{pending:{},cycle:0},{shuffle:true});save();render();
+  toast(r.made?`已重排本月 ${r.made} 場（順序與選藥重新洗牌，再按一次會再換）`:"本月沒有可排的週五");});
 document.getElementById("clearMonth").addEventListener("click",()=>{
   const y=view.getFullYear(),mo=view.getMonth();let n=0;
   for(const k of Object.keys(state.meetings)){const d=parseISO(k);
@@ -693,6 +715,43 @@ ${listTxt}
       if(drug)document.getElementById("drugInput").value=drug;
       updateDrugHint();toast("已套用，請確認後儲存");});}
   }catch(e){openAI("AI 重整：找 review 主題",aiText("發生錯誤："+e.message+"\n請確認 AI 設定、模型與 API 額度。"),[],"");}
+});
+
+/* ---------- AI: Journal reading article picker ---------- */
+let journalItems=[];
+document.getElementById("journalPick").addEventListener("click",async()=>{
+  if(!aiReady()){toast("請先在「AI 設定」填金鑰");openSettings();return;}
+  const today=iso(new Date());
+  const prompt=
+`你是婦癌科 Journal reading 選文助理。今天 ${today}。
+請從 5–10 個重要期刊（如 NEJM、Lancet、Lancet Oncology、JCO、JAMA、JAMA Oncology、Annals of Oncology、Nature Medicine、Gynecologic Oncology、Int J Gynecol Cancer 等）中，挑出最近約一週至一個月內、與婦癌（卵巢癌、子宮內膜癌、子宮頸癌、外陰／陰道癌等）相關、且討論度／關注度／引用較高、適合科內 Journal reading 報告的 6–10 篇文章。
+只輸出 JSON 陣列、不要任何其他文字。每個元素格式固定：
+{"title":"英文原標題","journal":"期刊","date":"YYYY-MM","area":"婦癌別","why":"一句話：為何重要或為何高關注","url":"原文連結"}`;
+  openAI("AI 期刊選文",`<span class="spin"></span>掃描近期重要期刊中…`,[],"");
+  try{
+    const{text,sources}=await aiComplete(prompt,true);
+    const items=parseJSONLoose(text);
+    if(!items||!items.length){openAI("AI 期刊選文",aiText(text||"沒有取得文章，可再試一次。"),sources,"");return;}
+    journalItems=items;
+    const list=items.map((it,i)=>`<label style="display:flex;gap:9px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line)">
+      <input type="checkbox" data-idx="${i}" style="margin-top:3px;accent-color:var(--teal)">
+      <span><b>${escapeHTML(it.title||"")}</b><br>
+      <span style="font-size:12px;color:var(--muted)">${escapeHTML([it.journal,it.date,it.area].filter(Boolean).join(" · "))}</span>
+      ${it.why?`<br><span style="font-size:12px;color:var(--ink-soft)">${escapeHTML(it.why)}</span>`:""}
+      ${it.url?`<br><a href="${escapeHTML(it.url)}" target="_blank" rel="noopener" style="font-size:12px;color:var(--teal)">原文連結</a>`:""}
+      </span></label>`).join("");
+    openAI("AI 期刊選文（勾選要納入的）",list,sources,`<button class="save" id="applyJournal" style="flex:1">加入勾選的到 Journal reading</button>`);
+    document.getElementById("applyJournal").addEventListener("click",()=>{
+      const picked=[...document.querySelectorAll('#aiBody input[type=checkbox]:checked')].map(cb=>journalItems[+cb.dataset.idx]).filter(Boolean);
+      if(!picked.length){toast("尚未勾選任何文章");return;}
+      aiov.classList.remove("open");
+      document.querySelectorAll(".typegrid input").forEach(cb=>{if(cb.value==="Journal reading"&&!cb.checked){cb.checked=true;cb.parentElement.classList.add("on");}});
+      toggleDrugBox();
+      const lines=picked.map(it=>`• ${it.title}（${[it.journal,it.date].filter(Boolean).join(", ")}）`).join("\n");
+      const note=document.getElementById("noteInput");note.value=(note.value?note.value+"\n":"")+lines;
+      const topic=document.getElementById("topicInput");if(!topic.value)topic.value=`Journal reading（精選 ${picked.length} 篇）`;
+      toast(`已加入 ${picked.length} 篇，請確認後儲存`);});
+  }catch(e){openAI("AI 期刊選文",aiText("發生錯誤："+e.message),[],"");}
 });
 
 /* ---------- AI: verbal plan a meeting ---------- */
