@@ -232,7 +232,7 @@
     <div class="drugbox" id="journalbox">
       <div style="font-size:12px;color:var(--ink-soft);font-weight:600;margin-bottom:8px">Journal reading 選文</div>
       <button type="button" class="aibtn" id="journalPick" style="width:100%">AI 挑近期重要期刊文章讓我勾選</button>
-      <div class="helptext" style="margin-top:6px">AI 會掃描重要國際／腫瘤／婦癌期刊，挑近一週～一個月內與婦癌相關、討論度較高的文章，列成清單讓你勾選後加入。</div>
+      <div class="helptext" style="margin-top:6px">AI 掃描 NEJM、Lancet、Lancet Oncology、JCO、JAMA Oncology、Annals of Oncology、JGO、Gynecologic Oncology、IJGC 等期刊，挑近一週～一個月內與婦癌相關、且討論度／點擊量／關注度（如 Altmetric）較高的文章，列成清單讓你勾選後加入。</div>
     </div>
     <div class="field"><label for="topicInput">主題</label><input type="text" id="topicInput" placeholder="會議主題"></div>
     <div class="row">
@@ -724,9 +724,11 @@ document.getElementById("journalPick").addEventListener("click",async()=>{
   const today=iso(new Date());
   const prompt=
 `你是婦癌科 Journal reading 選文助理。今天 ${today}。
-請從 5–10 個重要期刊（如 NEJM、Lancet、Lancet Oncology、JCO、JAMA、JAMA Oncology、Annals of Oncology、Nature Medicine、Gynecologic Oncology、Int J Gynecol Cancer 等）中，挑出最近約一週至一個月內、與婦癌（卵巢癌、子宮內膜癌、子宮頸癌、外陰／陰道癌等）相關、且討論度／關注度／引用較高、適合科內 Journal reading 報告的 6–10 篇文章。
+請鎖定下列重要期刊（涵蓋頂級綜合、腫瘤、婦癌專科）：NEJM、Lancet、Lancet Oncology、JAMA、JAMA Oncology、JCO（Journal of Clinical Oncology）、Annals of Oncology、Nature Medicine、Journal of Gynecologic Oncology（JGO）、Gynecologic Oncology、International Journal of Gynecological Cancer（IJGC）、ESMO Open、Clinical Cancer Research 等。
+從中挑出最近約一週至一個月內、與婦癌（卵巢癌、子宮內膜癌、子宮頸癌、外陰／陰道癌、滋養細胞疾病等）相關，且**討論度、點擊／瀏覽量、社群關注度（如 Altmetric）或早期引用較高**、適合科內 Journal reading 報告的 6–10 篇文章。
+選文請同時衡量兩件事並排序：(1) 期刊本身的重要性；(2) 該文近期的關注度與討論量——兩者都要夠才入選，優先選「重要期刊 × 高關注」的文章。
 只輸出 JSON 陣列、不要任何其他文字。每個元素格式固定：
-{"title":"英文原標題","journal":"期刊","date":"YYYY-MM","area":"婦癌別","why":"一句話：為何重要或為何高關注","url":"原文連結"}`;
+{"title":"英文原標題","journal":"期刊","date":"YYYY-MM","area":"婦癌別","why":"一句話：為何重要，並點出近期關注度／討論度（如高 Altmetric、被廣泛討論、會議熱議等）","url":"原文連結"}`;
   openAI("AI 期刊選文",`<span class="spin"></span>掃描近期重要期刊中…`,[],"");
   try{
     const{text,sources}=await aiComplete(prompt,true);
