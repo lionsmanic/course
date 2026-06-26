@@ -130,6 +130,12 @@
   .aisrc a{display:block;color:var(--teal);text-decoration:none;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .aisrc a:hover{text-decoration:underline}
   .helptext{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.5}
+  .exclbar{display:none;font-size:12px;color:#8a5a23;background:var(--amber-soft);border:1px solid #ecd9c6;border-radius:9px;padding:7px 11px;margin:-4px 0 14px}
+  .linkbtn{background:none;border:none;color:var(--teal);padding:0 2px;text-decoration:underline;font-size:12px;cursor:pointer}
+  .linkbtn:hover{color:#0c5b52;border:none}
+  .ahrow{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:14px;color:var(--ink-soft);cursor:pointer;
+    background:var(--amber-soft);border:1px solid #ecd9c6;border-radius:9px;padding:8px 11px}
+  .ahrow input{accent-color:var(--amber)}
   .warn{background:#fbf3e9;border:1px solid #ecd9c6;color:#8a5a23;border-radius:9px;padding:9px 11px;font-size:12px;margin-bottom:14px}
   .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--teal-soft);border-top-color:var(--teal);
     border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:7px}
@@ -178,8 +184,9 @@
     <span class="tag"><span class="dot d-center"></span>癌症中心（案例檢討／品質／指引）</span>
     <span class="tag"><span class="dot d-admin"></span>行政</span>
     <span class="tag"><span class="dot d-extra"></span>外加（SIV／外賓／檢驗）</span>
-    <span class="tag"><span class="dot d-all"></span>第一個週五＝全院 meeting，不排</span>
+    <span class="tag"><span class="dot d-all"></span>第一個週五＝全院 meeting，不排（其他天可手動標記）</span>
   </div>
+  <div class="exclbar" id="exclBanner"></div>
   <div class="weekhead" id="weekhead">
     <span></span><span>一</span><span>二</span><span>三</span><span>四</span>
     <span class="frih">五</span><span>六</span><span>日</span>
@@ -192,6 +199,7 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="edTitle">
     <h2 id="edTitle">排定會議</h2>
     <div class="sub" id="edSub"></div>
+    <label class="ahrow"><input type="checkbox" id="allhandsChk"> 這天是全院 meeting（AI 不排科內活動）</label>
     <div class="field">
       <div class="group-label">科內 routine（自動排時擇一輪替）</div>
       <div class="typegrid" data-group="routine">
@@ -247,6 +255,9 @@
       <button class="save" id="saveMeeting">儲存</button>
       <button class="del" id="deleteMeeting">刪除</button>
       <button id="closeEditor">取消</button>
+    </div>
+    <div class="modal-actions" id="excludeRow" style="display:none">
+      <button id="excludeMonth" style="flex:1" title="把這個活動類型從本月排除，並重排整個月">本月重排，這次不排此活動</button>
     </div>
   </div>
 </div>
@@ -345,8 +356,8 @@ function uid(){return "m"+Math.random().toString(36).slice(2,8)+Date.now().toStr
 function load(){
   try{const r=JSON.parse(localStorage.getItem(STORE_KEY)||localStorage.getItem("gynonc-schedule-v1"));
     if(r&&r.meetings){for(const k of Object.keys(r.meetings)){let v=r.meetings[k];if(!Array.isArray(v))v=[v];
-      v.forEach(m=>{if(!m.id)m.id=uid();});r.meetings[k]=v;}return r;}}catch(e){}
-  return {meetings:{}};
+      v.forEach(m=>{if(!m.id)m.id=uid();});r.meetings[k]=v;}r.allhands=r.allhands||{};r.exclusions=r.exclusions||{};return r;}}catch(e){}
+  return {meetings:{},allhands:{},exclusions:{}};
 }
 function save(){try{localStorage.setItem(STORE_KEY,JSON.stringify(state));}catch(e){toast("無法儲存（瀏覽器封鎖本機儲存）");}}
 function loadAI(){try{const r=JSON.parse(localStorage.getItem(AI_KEY));if(r)return Object.assign({provider:"gemini",key:"",model:""},r);}catch(e){}return{provider:"gemini",key:"",model:""};}
@@ -360,6 +371,9 @@ function monthsAgo(fromISO,ref){const a=parseISO(fromISO),b=ref;let m=(b.getFull
 function fridayOrdinal(d){return Math.floor((d.getDate()-1)/7)+1;}
 const WD=["日","一","二","三","四","五","六"];
 function dayMeetings(key){return state.meetings[key]||[];}
+function isAllhands(key){return !!(state.allhands&&state.allhands[key]);}
+function ymKey(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}`;}
+function monthExclusions(y,mo){return (state.exclusions&&state.exclusions[`${y}-${pad(mo+1)}`])||[];}
 function isDrugType(types){return types&&(types.includes(DRUG_TYPE)||types.includes(LEGACY_DRUG));}
 
 function allDrugRecords(){
@@ -408,6 +422,16 @@ function render(){
     for(let i=0;i<7;i++){week.appendChild(buildCell(new Date(cur),cur.getMonth()===mo,i===4,todayISO));cur.setDate(cur.getDate()+1);}
     cal.appendChild(week);wIdx++;if(wIdx>6)break;
   }
+  renderExclBanner();
+}
+function renderExclBanner(){
+  const el=document.getElementById("exclBanner");
+  const ex=monthExclusions(view.getFullYear(),view.getMonth());
+  if(!ex.length){el.style.display="none";el.innerHTML="";return;}
+  el.style.display="block";
+  el.innerHTML=`本月排程已排除：${ex.map(escapeHTML).join("、")}　<button class="linkbtn" id="clearExcl">清除排除</button>`;
+  document.getElementById("clearExcl").addEventListener("click",()=>{
+    delete state.exclusions[ymKey(view)];save();render();toast("已清除本月排除（下次排程恢復所有類型）");});
 }
 function buildCell(d,inMonth,isFri,todayISO){
   const key=iso(d);const el=document.createElement("div");
@@ -417,14 +441,15 @@ function buildCell(d,inMonth,isFri,todayISO){
   el.addEventListener("click",()=>openEditor(key,null));
   el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openEditor(key,null);}});
   const ord=fridayOrdinal(d),list=dayMeetings(key);
+  const ah=isAllhands(key)||(isFri&&ord===1);
   const head=document.createElement("div");head.className="frihead";
   head.innerHTML=`<span class="num">${d.getDate()}</span>`+(isFri?`<span class="frinote">週五 · 第${ord}個</span>`:"");
   el.appendChild(head);
-  if(isFri&&ord===1&&list.length===0){el.classList.add("allhands-bg");
+  if(ah){el.classList.add("allhands-bg");
     const c=document.createElement("div");c.className="chips";c.innerHTML=`<span class="chip allhands">全院 meeting · 不排</span>`;el.appendChild(c);}
   if(list.length){list.forEach(m=>el.appendChild(isFri?friCard(m,d):dayPill(m,d,key)));}
-  else if(!(isFri&&ord===1)){const h=document.createElement("div");h.className="emptyhint";h.textContent="＋ 排會議";el.appendChild(h);}
-  if(list.length||(isFri&&ord===1)){const add=document.createElement("button");add.className="addbtn";add.textContent="＋ 加一場";
+  else if(!ah){const h=document.createElement("div");h.className="emptyhint";h.textContent="＋ 排會議";el.appendChild(h);}
+  if(list.length||ah){const add=document.createElement("button");add.className="addbtn";add.textContent="＋ 加一場";
     add.addEventListener("click",e=>{e.stopPropagation();openEditor(key,null);});el.appendChild(add);}
   if(isFri&&ord===4){const t=document.createElement("div");t.className="tumornote";t.textContent="下午 16:30 婦癌 Combined Conf.（病理科）";el.appendChild(t);}
   return el;
@@ -467,7 +492,9 @@ function openEditor(key,id,prefill){
   document.getElementById("noteInput").value=m.notes||"";
   document.getElementById("drugInput").value=m.drug||"";
   fillDrugList();toggleDrugBox();updateDrugHint();
+  document.getElementById("allhandsChk").checked=isAllhands(key);
   document.getElementById("deleteMeeting").style.display=existing?"":"none";
+  document.getElementById("excludeRow").style.display=(existing&&(existing.types||[]).length)?"flex":"none";
   ov.classList.add("open");setTimeout(()=>document.getElementById("topicInput").focus(),50);
 }
 function closeEditor(){ov.classList.remove("open");editingKey=null;editingId=null;}
@@ -487,7 +514,16 @@ document.getElementById("suggestDrug").addEventListener("click",()=>{const ref=e
   document.getElementById("drugInput").value=s.drug;updateDrugHint();
   toast(`建議：${s.drug}（最久沒講，約 ${s.months===999?"從未介紹":s.months+" 個月前"}）`);});
 document.getElementById("saveMeeting").addEventListener("click",()=>{
-  const types=selectedTypes();if(!types.length){toast("請至少選一個會議類型");return;}
+  const ah=document.getElementById("allhandsChk").checked;
+  state.allhands=state.allhands||{};
+  if(ah){state.allhands[editingKey]=true;
+    const a=(state.meetings[editingKey]||[]).filter(m=>!(m.ai&&m.routine));
+    if(a.length)state.meetings[editingKey]=a;else delete state.meetings[editingKey];
+  }else delete state.allhands[editingKey];
+  const types=selectedTypes();
+  if(!types.length){
+    if(ah){save();closeEditor();render();toast("已標記為全院 meeting（AI 不排）");return;}
+    toast("請至少選一個會議類型");return;}
   const drug=document.getElementById("drugInput").value.trim();
   const obj={id:editingId||uid(),types,drug:types.includes(DRUG_TYPE)?drug:"",
     topic:document.getElementById("topicInput").value.trim(),presenter:document.getElementById("presInput").value.trim(),
@@ -496,6 +532,18 @@ document.getElementById("saveMeeting").addEventListener("click",()=>{
   const arr=state.meetings[editingKey]||[];
   if(editingId){const i=arr.findIndex(m=>m.id===editingId);if(i>=0){obj.ai=arr[i].ai;obj.routine=arr[i].routine;arr[i]=obj;}else arr.push(obj);}else arr.push(obj);
   state.meetings[editingKey]=arr;save();closeEditor();render();toast("已儲存");});
+document.getElementById("excludeMonth").addEventListener("click",()=>{
+  const existing=editingId?dayMeetings(editingKey).find(m=>m.id===editingId):null;
+  const types=(existing&&existing.types)||selectedTypes();
+  if(!types.length){toast("此活動沒有可排除的類型");return;}
+  const d=parseISO(editingKey),y=d.getFullYear(),mo=d.getMonth(),ym=ymKey(d);
+  state.exclusions=state.exclusions||{};
+  const set=new Set(state.exclusions[ym]||[]);types.forEach(t=>set.add(t));state.exclusions[ym]=[...set];
+  for(const k of Object.keys(state.meetings)){const dd=parseISO(k);
+    if(dd.getFullYear()===y&&dd.getMonth()===mo){const a=state.meetings[k].filter(m=>!(m.ai&&m.routine));if(a.length)state.meetings[k]=a;else delete state.meetings[k];}}
+  autoMonth(y,mo,{pending:{},cycle:0},{shuffle:true});
+  save();closeEditor();view=new Date(y,mo,1);render();
+  toast(`本月已重排，這次不排：${types.join("、")}`);});
 document.getElementById("deleteMeeting").addEventListener("click",()=>{
   const arr=(state.meetings[editingKey]||[]).filter(m=>m.id!==editingId);
   if(arr.length)state.meetings[editingKey]=arr;else delete state.meetings[editingKey];
@@ -508,14 +556,16 @@ function fridaysOf(y,mo){const out=[];const d=new Date(y,mo,1);while(d.getMonth(
 function autoMonth(y,mo,ctx,opts){
   ctx=ctx||{pending:{},cycle:0};opts=opts||{};const fris=fridaysOf(y,mo);let made=0;
   const quarter=(mo%3===0);let firstNew=true;
-  const order=opts.shuffle?shuffleArr(ROUTINE_CYCLE.slice()):ROUTINE_CYCLE;
+  const excluded=monthExclusions(y,mo);
+  const order=(opts.shuffle?shuffleArr(ROUTINE_CYCLE.slice()):ROUTINE_CYCLE).filter(t=>!excluded.includes(t));
   for(const f of fris){
     if(fridayOrdinal(f)===1)continue;
-    const key=iso(f);const arr=state.meetings[key]||[];
+    const key=iso(f);if(isAllhands(key))continue;
+    const arr=state.meetings[key]||[];
     if(arr.some(m=>m.ai&&m.routine))continue;
     let type,drug="";
-    if(quarter&&firstNew){type="臨床試驗進度匯總";}
-    else{type=order[ctx.cycle%order.length];ctx.cycle++;}
+    if(quarter&&firstNew&&!excluded.includes("臨床試驗進度匯總")){type="臨床試驗進度匯總";}
+    else{if(!order.length){firstNew=false;continue;}type=order[ctx.cycle%order.length];ctx.cycle++;}
     if(type===DRUG_TYPE){const s=opts.shuffle?suggestDrugRandom(f,ctx.pending):suggestDrug(f,ctx.pending);drug=s.drug;ctx.pending[drug]=key;}
     arr.push({id:uid(),types:[type],drug,topic:type+(drug?`：${drug}`:""),presenter:"",time:"07:30–08:00",
       location:"KB2 討論室",notes:"AI 依科內 routine 自動排定（擇一輪替），可自由增減或合辦",ai:true,routine:true});
@@ -826,6 +876,7 @@ document.getElementById("importFile").addEventListener("change",e=>{
   const f=e.target.files[0];if(!f)return;const r=new FileReader();
   r.onload=()=>{try{const d=JSON.parse(r.result);if(d&&d.meetings){
     for(const k of Object.keys(d.meetings)){let v=d.meetings[k];if(!Array.isArray(v))v=[v];v.forEach(m=>{if(!m.id)m.id=uid();});d.meetings[k]=v;}
+    d.allhands=d.allhands||{};d.exclusions=d.exclusions||{};
     state=d;save();render();toast("已匯入");}else toast("檔案格式不符");}catch(err){toast("無法讀取檔案");}};
   r.readAsText(f);e.target.value="";});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeEditor();dov.classList.remove("open");setov.classList.remove("open");aiov.classList.remove("open");plov.classList.remove("open");}});
