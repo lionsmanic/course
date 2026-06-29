@@ -74,6 +74,7 @@
   .chip.admin{background:#f6efdd;color:#8a6517}.chip.extra{background:#eef0f3;color:#5d6675}
   .chip.allhands{background:#f6eadf;color:var(--amber)}
   .chip.drug{background:#fff;border:1px solid var(--teal);color:var(--teal);font-weight:600}
+  .chip.bfast{background:#fbf3e9;color:#8a5a23;border:1px solid #ecd9c6}
   .addbtn{align-self:flex-start;font-size:11px;color:var(--muted);background:transparent;border:1px dashed var(--line);
     border-radius:7px;padding:2px 8px}
   .addbtn:hover{color:var(--teal);border-color:var(--teal)}
@@ -249,6 +250,12 @@
     </div>
     <div class="row">
       <div class="field"><label for="locInput">地點</label><input type="text" id="locInput" value="KB2 討論室"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="bfastSel">早餐</label>
+        <select id="bfastSel"><option value="">未定</option><option value="yes">有廠商提供</option><option value="no">自理／無</option></select></div>
+      <div class="field" id="vendorField" style="display:none"><label for="vendorInput">廠商</label>
+        <input type="text" id="vendorInput" list="vendorList" placeholder="哪一家廠商"><datalist id="vendorList"></datalist></div>
     </div>
     <div class="field"><label for="noteInput">備註</label><textarea id="noteInput" placeholder="例：與案例檢討合辦"></textarea></div>
     <div class="modal-actions">
@@ -459,18 +466,21 @@ function friCard(m,d){
   card.addEventListener("click",e=>{e.stopPropagation();openEditor(iso(d),m.id);});
   const chips=(m.types||[]).map(t=>`<span class="chip ${TYPE_CLASS[t]||""}">${t}</span>`).join("");
   const drug=m.drug?`<span class="chip drug">${escapeHTML(m.drug)}${drugChipAge(m.drug,d)}</span>`:"";
-  card.innerHTML=`<div class="mhead">${chips}${drug}${m.ai?'<span class="ai-flag">AI 排</span>':''}</div>`+
+  card.innerHTML=`<div class="mhead">${chips}${drug}<span class="chip bfast">${escapeHTML(bfastText(m))}</span>${m.ai?'<span class="ai-flag">AI 排</span>':''}</div>`+
     (m.topic?`<div class="topic">${escapeHTML(m.topic)}</div>`:"")+
     `<div class="meta">${[m.presenter,m.time,m.location].filter(Boolean).map(escapeHTML).join(" · ")}</div>`;
   return card;
 }
 function dayPill(m,d,key){
   const p=document.createElement("div");p.className="pill "+(TYPE_CLASS[(m.types||[])[0]]||"");
-  p.title=(m.types||[]).join("、")+(m.topic?(" — "+m.topic):"");
+  p.title=(m.types||[]).join("、")+(m.topic?(" — "+m.topic):"")+" · "+bfastText(m);
   p.textContent=m.topic||(m.types||[]).join("、")||"會議";
   p.addEventListener("click",e=>{e.stopPropagation();openEditor(key,m.id);});return p;
 }
 function drugChipAge(drug,d){const info=lastForDrug(drug,d);if(!info)return" · 首次";if(info.months<=0)return"";return` · 上次 ${info.months} 月前`;}
+function bfastText(m){const b=m.breakfast;if(b==="yes")return "早餐 · "+(m.vendor||"廠商未填");if(b==="no")return "早餐 · 自理";return "早餐 · 未定";}
+function fillVendorList(){const vs=[...new Set(Object.values(state.meetings).flat().map(m=>m.vendor).filter(Boolean))];
+  document.getElementById("vendorList").innerHTML=vs.map(v=>`<option value="${escapeHTML(v)}">`).join("");}
 function escapeHTML(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 
 /* ---------- editor ---------- */
@@ -492,6 +502,10 @@ function openEditor(key,id,prefill){
   document.getElementById("noteInput").value=m.notes||"";
   document.getElementById("drugInput").value=m.drug||"";
   fillDrugList();toggleDrugBox();updateDrugHint();
+  fillVendorList();
+  document.getElementById("bfastSel").value=m.breakfast||"";
+  document.getElementById("vendorInput").value=m.vendor||"";
+  document.getElementById("vendorField").style.display=(m.breakfast==="yes")?"":"none";
   document.getElementById("allhandsChk").checked=isAllhands(key);
   document.getElementById("deleteMeeting").style.display=existing?"":"none";
   document.getElementById("excludeRow").style.display=(existing&&(existing.types||[]).length)?"flex":"none";
@@ -510,6 +524,7 @@ function updateDrugHint(){const drug=document.getElementById("drugInput").value.
   hint.innerHTML=info?`上次介紹：<b>${info.last}</b>（約 <b>${info.months}</b> 個月前）`:`<b>${escapeHTML(drug)}</b>：尚無紀錄，是首次介紹。`;}
 document.querySelectorAll(".typegrid input").forEach(cb=>cb.addEventListener("change",()=>{cb.parentElement.classList.toggle("on",cb.checked);toggleDrugBox();}));
 document.getElementById("drugInput").addEventListener("input",updateDrugHint);
+document.getElementById("bfastSel").addEventListener("change",e=>{document.getElementById("vendorField").style.display=(e.target.value==="yes")?"":"none";});
 document.getElementById("suggestDrug").addEventListener("click",()=>{const ref=editingKey?parseISO(editingKey):new Date();const s=suggestDrug(ref,{});
   document.getElementById("drugInput").value=s.drug;updateDrugHint();
   toast(`建議：${s.drug}（最久沒講，約 ${s.months===999?"從未介紹":s.months+" 個月前"}）`);});
@@ -525,7 +540,9 @@ document.getElementById("saveMeeting").addEventListener("click",()=>{
     if(ah){save();closeEditor();render();toast("已標記為全院 meeting（AI 不排）");return;}
     toast("請至少選一個會議類型");return;}
   const drug=document.getElementById("drugInput").value.trim();
-  const obj={id:editingId||uid(),types,drug:types.includes(DRUG_TYPE)?drug:"",
+  const bf=document.getElementById("bfastSel").value;
+  const vendor=bf==="yes"?document.getElementById("vendorInput").value.trim():"";
+  const obj={id:editingId||uid(),types,drug:types.includes(DRUG_TYPE)?drug:"",breakfast:bf,vendor,
     topic:document.getElementById("topicInput").value.trim(),presenter:document.getElementById("presInput").value.trim(),
     time:document.getElementById("timeInput").value.trim(),location:document.getElementById("locInput").value.trim(),
     notes:document.getElementById("noteInput").value.trim(),ai:false};
